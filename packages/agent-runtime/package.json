@@ -1,0 +1,23 @@
+{
+  "name": "@ai-review/agent-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Dynamic agent registration + execution runtime (ADR-0003). Enforces tool/skill allow-lists and output-schema validation.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@ai-review/core": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}

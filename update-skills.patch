@@ -1,0 +1,66 @@
+--- apps/web/src/SkillsView.tsx
++++ apps/web/src/SkillsView.tsx
+@@ -7,6 +7,8 @@
+   focus: string;
+   description: string;
+   instructions: string;
++  type?: 'framework' | 'language' | 'general';
++  targets?: string[];
+ }
+ 
+ const DEFAULT_SKILLS: CustomSkill[] = [
+@@ -15,35 +17,54 @@
+     name: 'React Reviewer',
+     focus: 'react',
+     description: 'React correctness & idioms. Reviews changed lines for React-specific issues.',
+-    instructions: 'You are the React Reviewer. FOCUS:react. Review the diff and return JSON matching {issues,confidence,summary}. Evaluate hooks, state management, component composition, and rendering performance.'
++    instructions: 'You are the React Reviewer. FOCUS:react. Review the diff and return JSON matching {issues,confidence,summary}. Evaluate hooks, state management, component composition, and rendering performance.',
++    type: 'framework',
++    targets: ['react', 'next.js']
+   },
+   {
+     id: 'agent.security-reviewer',
+     name: 'Security Reviewer',
+     focus: 'security',
+     description: 'Security vulnerabilities. Reviews changed lines for security issues.',
+-    instructions: 'You are the Security Reviewer. FOCUS:security. Review the diff for security vulnerabilities like XSS, CSRF, SQL Injection, hardcoded secrets, and unsafe dependencies.'
++    instructions: 'You are the Security Reviewer. FOCUS:security. Review the diff for security vulnerabilities like XSS, CSRF, SQL Injection, hardcoded secrets, and unsafe dependencies.',
++    type: 'general'
+   },
+   {
+     id: 'agent.performance-reviewer',
+     name: 'Performance Reviewer',
+     focus: 'performance',
+     description: 'Performance issues. Reviews changed lines for performance bottlenecks.',
+-    instructions: 'You are the Performance Reviewer. FOCUS:performance. Review the diff for inefficient algorithms, memory leaks, unnecessary allocations, and slow database queries.'
++    instructions: 'You are the Performance Reviewer. FOCUS:performance. Review the diff for inefficient algorithms, memory leaks, unnecessary allocations, and slow database queries.',
++    type: 'general'
+   },
+   {
+     id: 'agent.code-reviewer',
+     name: 'Code Reviewer',
+     focus: 'code',
+     description: 'General code quality. Reviews changed lines for general code quality.',
+-    instructions: 'You are the Code Reviewer. FOCUS:code. Review the diff for general code quality, readability, maintainability, naming conventions, and dead code.'
++    instructions: 'You are the Code Reviewer. FOCUS:code. Review the diff for general code quality, readability, maintainability, naming conventions, and dead code.',
++    type: 'general'
+   },
+   {
+     id: 'rule.secret-detection',
+     name: 'Secret Detection (Rule)',
+     focus: 'secret_detection',
+     description: 'Deterministic rule that detects hardcoded secrets / API keys / tokens in added code.',
+-    instructions: 'Scans files using regex patterns for OpenAI keys, AWS keys, private keys, and generic token variables.'
++    instructions: 'Scans files using regex patterns for OpenAI keys, AWS keys, private keys, and generic token variables.',
++    type: 'general'
++  },
++  {
++    id: 'agent.dead-code',
++    name: 'Dead Code Analyzer',
++    focus: 'dead_code',
++    description: 'Detects unused variables, functions, and unreachable code paths across files.',
++    instructions: 'You are the Dead Code Analyzer. FOCUS:dead_code. Find unused code, commented out code blocks, and unreachable logic.',
++    type: 'language',
++    targets: ['ts', 'js', 'python', 'java']
+   }
+ ];

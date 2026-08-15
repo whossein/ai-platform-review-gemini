@@ -1,0 +1,23 @@
+{
+  "name": "@ai-review/tools",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Side-effecting tools only: fs, git, gitlab/github, terminal, docker, node, mcp, llm. MCP-first (ADR-0009).",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@ai-review/core": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}

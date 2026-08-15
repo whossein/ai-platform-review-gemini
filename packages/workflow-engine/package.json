@@ -1,0 +1,23 @@
+{
+  "name": "@ai-review/workflow-engine",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Configurable DAG orchestration of review flows (ADR-0005). Budget + escalation gates. No business logic.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@ai-review/core": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
