@@ -1,4 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
+import { 
+  FileCode, 
+  GitPullRequest, 
+  Archive, 
+  Folder, 
+  GitBranch
+} from 'lucide-react';
 import { requestReview, requestEstimate, checkHealth, type ReviewIssue, type ReviewResponse, type EstimateResponse } from './api.js';
 import { useAppConfig } from './Settings.js';
 
@@ -381,26 +388,105 @@ export function ReviewView(): JSX.Element {
 
       <div className="settings-card" style={{ background: 'var(--panel)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border)', marginBottom: '1.5rem' }}>
         
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.25rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: inputMode === 'diff' ? 'var(--accent)' : 'var(--muted)', fontWeight: inputMode === 'diff' ? 600 : 400 }}>
-            <input type="radio" name="inputMode" value="diff" checked={inputMode === 'diff'} onChange={() => setInputMode('diff')} style={{ accentColor: 'var(--accent)' }} />
-            Raw Diff
+        <div className="radio-cards-grid">
+          <label 
+            className={`radio-card ${inputMode === 'diff' ? 'active' : ''}`}
+            onClick={() => setInputMode('diff')}
+          >
+            <input 
+              type="radio" 
+              name="inputMode" 
+              value="diff" 
+              checked={inputMode === 'diff'} 
+              onChange={() => setInputMode('diff')} 
+            />
+            <div className="radio-indicator">
+              <div className="radio-indicator-dot" />
+            </div>
+            <div className="radio-card-content">
+              <span className="radio-card-icon"><FileCode size={16} /></span>
+              <span>Raw Diff</span>
+            </div>
           </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: inputMode === 'pr' ? 'var(--accent)' : 'var(--muted)', fontWeight: inputMode === 'pr' ? 600 : 400 }}>
-            <input type="radio" name="inputMode" value="pr" checked={inputMode === 'pr'} onChange={() => setInputMode('pr')} style={{ accentColor: 'var(--accent)' }} />
-            Merge Request URL
+
+          <label 
+            className={`radio-card ${inputMode === 'pr' ? 'active' : ''}`}
+            onClick={() => setInputMode('pr')}
+          >
+            <input 
+              type="radio" 
+              name="inputMode" 
+              value="pr" 
+              checked={inputMode === 'pr'} 
+              onChange={() => setInputMode('pr')} 
+            />
+            <div className="radio-indicator">
+              <div className="radio-indicator-dot" />
+            </div>
+            <div className="radio-card-content">
+              <span className="radio-card-icon"><GitPullRequest size={16} /></span>
+              <span>Merge Request URL</span>
+            </div>
           </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: inputMode === 'zip' ? 'var(--accent)' : 'var(--muted)', fontWeight: inputMode === 'zip' ? 600 : 400 }}>
-            <input type="radio" name="inputMode" value="zip" checked={inputMode === 'zip'} onChange={() => setInputMode('zip')} style={{ accentColor: 'var(--accent)' }} />
-            ZIP File
+
+          <label 
+            className={`radio-card ${inputMode === 'zip' ? 'active' : ''}`}
+            onClick={() => setInputMode('zip')}
+          >
+            <input 
+              type="radio" 
+              name="inputMode" 
+              value="zip" 
+              checked={inputMode === 'zip'} 
+              onChange={() => setInputMode('zip')} 
+            />
+            <div className="radio-indicator">
+              <div className="radio-indicator-dot" />
+            </div>
+            <div className="radio-card-content">
+              <span className="radio-card-icon"><Archive size={16} /></span>
+              <span>ZIP File</span>
+            </div>
           </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: inputMode === 'path' ? 'var(--accent)' : 'var(--muted)', fontWeight: inputMode === 'path' ? 600 : 400 }}>
-            <input type="radio" name="inputMode" value="path" checked={inputMode === 'path'} onChange={() => setInputMode('path')} style={{ accentColor: 'var(--accent)' }} />
-            Local Path
+
+          <label 
+            className={`radio-card ${inputMode === 'path' ? 'active' : ''}`}
+            onClick={() => setInputMode('path')}
+          >
+            <input 
+              type="radio" 
+              name="inputMode" 
+              value="path" 
+              checked={inputMode === 'path'} 
+              onChange={() => setInputMode('path')} 
+            />
+            <div className="radio-indicator">
+              <div className="radio-indicator-dot" />
+            </div>
+            <div className="radio-card-content">
+              <span className="radio-card-icon"><Folder size={16} /></span>
+              <span>Local Path</span>
+            </div>
           </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: inputMode === 'repo' ? 'var(--accent)' : 'var(--muted)', fontWeight: inputMode === 'repo' ? 600 : 400 }}>
-            <input type="radio" name="inputMode" value="repo" checked={inputMode === 'repo'} onChange={() => setInputMode('repo')} style={{ accentColor: 'var(--accent)' }} />
-            Git Repository
+
+          <label 
+            className={`radio-card ${inputMode === 'repo' ? 'active' : ''}`}
+            onClick={() => setInputMode('repo')}
+          >
+            <input 
+              type="radio" 
+              name="inputMode" 
+              value="repo" 
+              checked={inputMode === 'repo'} 
+              onChange={() => setInputMode('repo')} 
+            />
+            <div className="radio-indicator">
+              <div className="radio-indicator-dot" />
+            </div>
+            <div className="radio-card-content">
+              <span className="radio-card-icon"><GitBranch size={16} /></span>
+              <span>Git Repository</span>
+            </div>
           </label>
         </div>
 
@@ -624,24 +710,31 @@ export function ReviewView(): JSX.Element {
                   
                   <div style={{ fontSize: '0.85rem', marginTop: '1rem' }}>
                     <div style={{ color: 'var(--muted)', marginBottom: '0.75rem', fontWeight: 600 }}>Select Specialists for Review:</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.5rem' }}>
-                      {allAgents.map((a) => (
-                        <label key={a} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: selectedAgents.has(a) ? 'var(--text)' : 'var(--muted)' }}>
-                          <input 
-                            type="checkbox" 
-                            checked={selectedAgents.has(a)} 
-                            onChange={() => {
-                              setSelectedAgents(prev => {
-                                const next = new Set(prev);
-                                if (next.has(a)) next.delete(a);
-                                else next.add(a);
-                                return next;
-                              });
-                            }}
-                          />
-                          {a}
-                        </label>
-                      ))}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '0.5rem' }}>
+                      {allAgents.map((a) => {
+                        const isChecked = selectedAgents.has(a);
+                        return (
+                          <label 
+                            key={a} 
+                            className={`agent-checkbox-pill ${isChecked ? 'active' : ''}`}
+                          >
+                            <input 
+                              type="checkbox" 
+                              checked={isChecked} 
+                              onChange={() => {
+                                setSelectedAgents(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(a)) next.delete(a);
+                                  else next.add(a);
+                                  return next;
+                                });
+                              }}
+                              style={{ accentColor: 'var(--accent)', cursor: 'pointer' }}
+                            />
+                            <span style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>{a}</span>
+                          </label>
+                        );
+                      })}
                     </div>
                   </div>
                 </>
