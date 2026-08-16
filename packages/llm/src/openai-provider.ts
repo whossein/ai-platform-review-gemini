@@ -135,15 +135,38 @@ export class OpenAICompatibleProvider implements LLMProvider {
       stream: false,
     };
 
-    const targetEndpoint = `${this.baseUrl}/chat/completions`;
+    const cleanKey = this.apiKey ? this.apiKey.trim().replace(/^["']|["']$/g, '') : undefined;
+    const rawKey = cleanKey ? cleanKey.replace(/^Bearer\s+/i, '').trim() : undefined;
+
+    const requestHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+
+    if (rawKey) {
+      // Standard RFC-6750 Authorization Bearer header
+      requestHeaders['Authorization'] = `Bearer ${rawKey}`;
+      requestHeaders['authorization'] = `Bearer ${rawKey}`;
+
+      // Additional provider-specific header compatibility
+      requestHeaders['x-api-key'] = rawKey;
+      requestHeaders['api-key'] = rawKey;
+      requestHeaders['x-goog-api-key'] = rawKey;
+      requestHeaders['HTTP-Referer'] = 'https://ai-review-platform.local';
+      requestHeaders['X-Title'] = 'AI Review Platform';
+    }
+
+    let targetEndpoint = `${this.baseUrl}/chat/completions`;
+    if (rawKey && (this.baseUrl.includes('googleapis.com') || this.baseUrl.includes('generativelanguage')) && !targetEndpoint.includes('key=')) {
+      const separator = targetEndpoint.includes('?') ? '&' : '?';
+      targetEndpoint = `${targetEndpoint}${separator}key=${encodeURIComponent(rawKey)}`;
+    }
+
     let res: Response;
     try {
       res = await this.fetchImpl(targetEndpoint, {
         method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          ...(this.apiKey ? { authorization: `Bearer ${this.apiKey}` } : {}),
-        },
+        headers: requestHeaders,
         body: JSON.stringify(body),
       });
     } catch (cause: any) {
@@ -159,11 +182,16 @@ export class OpenAICompatibleProvider implements LLMProvider {
 
     const text = await res.text();
     if (!res.ok) {
+      const isUnauthorized = res.status === 401 || res.status === 403;
+      const authHint = isUnauthorized 
+        ? ` (Authentication failed with HTTP ${res.status}. Verify that your API key is valid and has correct permissions)`
+        : '';
+
       return {
         ok: false,
         error: llmError(
           'llm.http_error',
-          `LLM API (${targetEndpoint}) returned HTTP ${res.status}: ${text.slice(0, 300)}`,
+          `LLM API (${targetEndpoint}) returned HTTP ${res.status}${authHint}: ${text.slice(0, 300)}`,
         ),
       };
     }
@@ -281,6 +309,39 @@ function parseSseChunks<
  * of them can be pointed at a third-party gateway without code changes. The
  * generic `AI_REVIEW_LLM_*` vars remain as a simple provider-agnostic fallback.
  */
+export function resolveApiKey(
+  provider: string,
+  envPrefix: string,
+  explicitKey?: string,
+  env: Record<string, string | undefined> = process.env,
+): string | undefined {
+  if (explicitKey && explicitKey.trim()) return explicitKey.trim();
+
+  const specific = env[`AI_REVIEW_${envPrefix}_API_KEY`];
+  if (specific && specific.trim()) return specific.trim();
+
+  const generic = env['AI_REVIEW_LLM_API_KEY'];
+  if (generic && generic.trim()) return generic.trim();
+
+  // Provider-specific standard aliases
+  const aliases: Record<string, string[]> = {
+    gemini: ['GEMINI_API_KEY', 'GOOGLE_API_KEY', 'AI_REVIEW_GEMINI_API_KEY'],
+    openai: ['OPENAI_API_KEY', 'AI_REVIEW_OPENAI_API_KEY'],
+    anthropic: ['ANTHROPIC_API_KEY', 'AI_REVIEW_ANTHROPIC_API_KEY'],
+    deepseek: ['DEEPSEEK_API_KEY', 'AI_REVIEW_DEEPSEEK_API_KEY'],
+    openrouter: ['OPENROUTER_API_KEY', 'AI_REVIEW_OPENROUTER_API_KEY'],
+    azure: ['AZURE_OPENAI_API_KEY', 'AZURE_API_KEY', 'AI_REVIEW_AZURE_API_KEY'],
+  };
+
+  const aliasList = aliases[provider.toLowerCase()] || [];
+  for (const alias of aliasList) {
+    const val = env[alias];
+    if (val && val.trim()) return val.trim();
+  }
+
+  return undefined;
+}
+
 export function providerFromEnv(
   env: Record<string, string | undefined> = process.env,
 ): OpenAICompatibleProvider | undefined {
@@ -294,7 +355,7 @@ export function providerFromEnv(
   const explicitBaseUrl = env[`AI_REVIEW_${p}_BASE_URL`] ?? env['AI_REVIEW_LLM_BASE_URL'];
   const rawBaseUrl = explicitBaseUrl ?? preset.defaultBaseUrl;
   const baseUrl = rawBaseUrl ? normalizeBaseUrl(rawBaseUrl) : undefined;
-  const apiKey = env[`AI_REVIEW_${p}_API_KEY`] ?? env['AI_REVIEW_LLM_API_KEY'];
+  const apiKey = resolveApiKey(preset.key, p, undefined, env);
   const model = env[`AI_REVIEW_${p}_MODEL`] ?? env['AI_REVIEW_LLM_MODEL'] ?? preset.defaultModel;
 
   // Only build a REAL provider when the user actually configured something —
@@ -349,6 +410,7 @@ export function providersFromEnv(
         if (!rawBaseUrl) continue;
         const baseUrl = normalizeBaseUrl(rawBaseUrl);
         const tier = (data.tier || preset.defaultTier) as ModelTier;
+        const apiKey = resolveApiKey(data.provider, preset.envPrefix, data.apiKey, env);
         const inputCostPer1M = typeof data.inputCostPer1M === 'number'
           ? data.inputCostPer1M
           : (preset.defaultInputCostPer1M ?? 0);
@@ -360,7 +422,7 @@ export function providersFromEnv(
           new OpenAICompatibleProvider({
             providerId: data.id ? `provider.${data.provider}-${data.id}` : preset.providerId,
             baseUrl,
-            ...(data.apiKey ? { apiKey: data.apiKey } : {}),
+            ...(apiKey ? { apiKey } : {}),
             models: [{
               id: data.model || preset.defaultModel,
               tier,

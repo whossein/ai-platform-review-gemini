@@ -16,6 +16,7 @@ export {
   OpenAICompatibleProvider,
   providerFromEnv,
   providersFromEnv,
+  resolveApiKey,
   normalizeBaseUrl,
   type OpenAICompatibleOptions,
   type OpenAICompatibleModel,

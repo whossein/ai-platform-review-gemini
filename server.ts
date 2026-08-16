@@ -247,12 +247,12 @@ function parseDiffToFiles(diffText: string): { path: string, text: string }[] {
         return;
       }
 
-      const { resolveProviderPreset, OpenAICompatibleProvider } = await import('@ai-review/llm');
+      const { resolveProviderPreset, OpenAICompatibleProvider, resolveApiKey } = await import('@ai-review/llm');
       const preset = resolveProviderPreset(provider) ?? resolveProviderPreset('openai')!;
       
       const effectiveBaseUrl = baseUrl || preset.defaultBaseUrl;
       const effectiveModel = model || preset.defaultModel;
-      const effectiveApiKey = apiKey || process.env[`AI_REVIEW_${preset.envPrefix}_API_KEY`] || process.env.AI_REVIEW_LLM_API_KEY;
+      const effectiveApiKey = resolveApiKey(provider, preset.envPrefix, apiKey, process.env);
 
       if (!effectiveBaseUrl) {
         res.status(400).json({
