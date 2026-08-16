@@ -17,8 +17,16 @@ export {
   DEFAULT_RULES,
   secretDetectionRule,
   noConsoleRule,
+  noDebuggerRule,
+  noEvalRule,
+  noExclusiveTestsRule,
   noExplicitAnyRule,
   noTodoRule,
+  lintComplianceRule,
+  requireReleaseChangeRule,
+  commitConventionRule,
+  branchNamingRule,
+  prTemplateComplianceRule,
 } from './rules.js';
 export type { FileRuleContext } from './rules.js';
 
@@ -36,6 +44,14 @@ export function ruleFindingToIssue(finding: RuleFinding): Issue {
     file: finding.location.file,
     ...(finding.location.symbol ? { symbol: finding.location.symbol } : {}),
   });
+  
+  let category = 'code';
+  if (finding.ruleKind === 'secret_detection') {
+    category = 'security';
+  } else if (finding.ruleKind === 'governance') {
+    category = 'governance';
+  }
+
   return {
     id: issueId(fingerprint),
     title: finding.ruleId,
@@ -45,7 +61,7 @@ export function ruleFindingToIssue(finding: RuleFinding): Issue {
     reason: `Deterministic rule "${finding.ruleId}" matched (no LLM tokens spent).`,
     location: finding.location,
     references: [],
-    category: finding.ruleKind === 'secret_detection' ? 'security' : 'code',
+    category,
     producedBy: RULE_ENGINE_AGENT,
     fingerprint,
   };

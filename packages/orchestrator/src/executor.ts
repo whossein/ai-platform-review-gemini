@@ -108,13 +108,22 @@ export class ReviewStageExecutor implements StageExecutor {
   }
 
   private async executeRules(): AsyncResult<StageOutcome> {
+    const filesToScan: { path: string; text: string }[] = [];
     if (this.ctx.files && this.ctx.files.length > 0) {
+      filesToScan.push(...this.ctx.files);
+    } else if (this.ctx.slice && this.ctx.slice.files && this.ctx.slice.files.length > 0) {
+      for (const f of this.ctx.slice.files) {
+        filesToScan.push({ path: f.path, text: this.ctx.slice.rendered ?? '' });
+      }
+    }
+
+    if (filesToScan.length > 0) {
       const ruleRegistry = new MapRuleRegistry();
       for (const rule of DEFAULT_RULES) ruleRegistry.register(rule);
       const ruleEngine = new DefaultRuleEngine(ruleRegistry);
       const ruleCtx: FileRuleContext = {
         repositoryId: 'repo.local',
-        files: this.ctx.files.map((f) => ({ path: f.path, text: f.text })),
+        files: filesToScan,
       };
       const ruleRes = await ruleEngine.run(ruleCtx);
       if (ruleRes.ok) {

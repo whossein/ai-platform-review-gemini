@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { 
   Plus, 
   Trash2, 
@@ -7,6 +7,9 @@ import {
   Activity, 
   CheckCircle2, 
   AlertCircle, 
+  AlertTriangle,
+  Save,
+  RotateCcw,
   Eye, 
   EyeOff, 
   Download, 
@@ -127,10 +130,31 @@ export function SettingsView() {
     outputCostPer1M: PRESET_DEFAULTS.gemini.defaultOutputCost,
   });
 
+  const hasUnsavedChanges = useMemo(() => {
+    return JSON.stringify(local) !== JSON.stringify(config);
+  }, [local, config]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
   const handleSave = () => {
     setConfig(local);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+  };
+
+  const handleDiscard = () => {
+    setLocal(config);
+    setEditingProviderId(null);
+    setEditForm(null);
   };
 
   const handleTest = async (
@@ -263,12 +287,82 @@ export function SettingsView() {
 
   return (
     <div className="settings-view" style={{ maxWidth: '680px', margin: '0 auto' }}>
-      <header className="view-header" style={{ marginBottom: '2rem' }}>
+      <header className="view-header" style={{ marginBottom: '1.5rem' }}>
         <h1 style={{ margin: 0, fontSize: '1.5rem', color: 'var(--text)' }}>Configuration & AI Providers</h1>
         <p style={{ color: 'var(--muted)', marginTop: '0.5rem', fontSize: '0.9rem' }}>
           Manage your AI models, API keys, endpoints, and persistent settings.
         </p>
       </header>
+
+      {/* Unsaved Changes Top Alert */}
+      {hasUnsavedChanges && (
+        <div style={{
+          background: 'rgba(234, 179, 8, 0.12)',
+          border: '1px solid rgba(234, 179, 8, 0.45)',
+          borderRadius: '12px',
+          padding: '1rem 1.25rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          flexWrap: 'wrap',
+          boxShadow: '0 4px 12px rgba(234, 179, 8, 0.08)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: '240px' }}>
+            <div style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '8px',
+              backgroundColor: 'rgba(234, 179, 8, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              <AlertTriangle size={20} style={{ color: '#eab308' }} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.95rem' }}>
+                هشدار: تغییرات ذخیره نشده دارید (Unsaved Changes)
+              </div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--muted)', marginTop: '0.2rem' }}>
+                اطلاعات ویرایش شده‌اند. لطفاً روی دکمه ذخیره کلیک کنید تا تنظیمات در سیستم ثبت شوند.
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <button
+              type="button"
+              onClick={handleDiscard}
+              className="secondary-button"
+              style={{ padding: '0.5rem 0.85rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+            >
+              <RotateCcw size={14} /> بازنشانی (Discard)
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              style={{
+                padding: '0.5rem 1rem',
+                fontSize: '0.85rem',
+                backgroundColor: 'var(--accent)',
+                color: '#fff',
+                fontWeight: 600,
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)'
+              }}
+            >
+              <Save size={15} /> ذخیره تنظیمات (Save)
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Test Mode Card */}
       <div className="settings-card" style={{ background: 'var(--panel)', padding: '1.25rem 1.5rem', borderRadius: '12px', border: '1px solid var(--border)', marginBottom: '1.5rem' }}>
@@ -958,14 +1052,117 @@ export function SettingsView() {
         )}
       </div>
 
-      {/* Save Button */}
-      <div className="form-actions" style={{ marginTop: '2rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <button onClick={handleSave} style={{ padding: '0.75rem 1.5rem', fontSize: '1rem' }}>
+      {/* Sticky Floating Bar for Unsaved Changes */}
+      {hasUnsavedChanges && (
+        <div style={{
+          position: 'sticky',
+          bottom: '1.25rem',
+          zIndex: 50,
+          background: 'var(--panel)',
+          border: '1px solid rgba(234, 179, 8, 0.6)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.45)',
+          borderRadius: '12px',
+          padding: '0.85rem 1.25rem',
+          marginTop: '1.5rem',
+          marginBottom: '1rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          backdropFilter: 'blur(12px)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <span style={{
+              display: 'inline-block',
+              width: '10px',
+              height: '10px',
+              borderRadius: '50%',
+              backgroundColor: '#eab308',
+              boxShadow: '0 0 8px #eab308'
+            }} />
+            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)' }}>
+              تغییرات ذخیره نشده دارید! لطفاً برای اعمال تغییرات ذخیره کنید.
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <button
+              type="button"
+              onClick={handleDiscard}
+              className="secondary-button"
+              style={{ padding: '0.45rem 0.85rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+            >
+              <RotateCcw size={14} /> بازنشانی
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              style={{
+                padding: '0.45rem 1.1rem',
+                fontSize: '0.85rem',
+                backgroundColor: 'var(--accent)',
+                color: '#fff',
+                fontWeight: 600,
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                boxShadow: '0 2px 10px rgba(99, 102, 241, 0.4)'
+              }}
+            >
+              <Save size={15} /> ذخیره تغییرات
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Save Button Section */}
+      <div className="form-actions" style={{ marginTop: '2rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+        <button 
+          onClick={handleSave} 
+          style={{ 
+            padding: '0.75rem 1.75rem', 
+            fontSize: '1rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            position: 'relative'
+          }}
+        >
+          <Save size={18} />
           Save Configuration
         </button>
+
+        {hasUnsavedChanges && (
+          <span style={{ 
+            color: '#eab308', 
+            fontSize: '0.85rem', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.35rem',
+            background: 'rgba(234, 179, 8, 0.1)',
+            padding: '0.35rem 0.75rem',
+            borderRadius: '6px',
+            border: '1px solid rgba(234, 179, 8, 0.3)'
+          }}>
+            <AlertTriangle size={15} /> تغییرات ذخیره نشده دارید
+          </span>
+        )}
+
         {saved && (
-          <span style={{ color: 'var(--low)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-            <CheckCircle2 size={16} /> Saved successfully
+          <span style={{ 
+            color: 'var(--low)', 
+            fontSize: '0.9rem', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.35rem',
+            background: 'rgba(74, 222, 128, 0.1)',
+            padding: '0.35rem 0.75rem',
+            borderRadius: '6px',
+            border: '1px solid rgba(74, 222, 128, 0.3)'
+          }}>
+            <CheckCircle2 size={16} /> Saved successfully / ذخیره شد
           </span>
         )}
       </div>

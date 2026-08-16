@@ -37,7 +37,16 @@ async function resolveDiffInput(input: string, env: Record<string, string | unde
     if (!diffRes.ok) {
       throw new Error(`Failed to fetch GitLab MR diff: ${diffRes.error.message}${!token ? ' (A GITLAB_TOKEN may be required in Settings)' : ''}`);
     }
-    return diffRes.value;
+    let metadataHeader = '';
+    try {
+      const crRes = await provider.getChangeRequest(ref);
+      if (crRes.ok) {
+        metadataHeader = `# Merge Request Metadata:\n# Source Branch: ${crRes.value.sourceBranch}\n# Target Branch: ${crRes.value.targetBranch}\n# MR Title: ${crRes.value.title}\n\n`;
+      }
+    } catch {
+      // ignore metadata error
+    }
+    return metadataHeader + diffRes.value;
   }
 
   if (ref.provider === 'github') {
@@ -58,7 +67,26 @@ async function resolveDiffInput(input: string, env: Record<string, string | unde
     if (!text || text.trim().length === 0) {
       throw new Error('The pull request diff is empty.');
     }
-    return text;
+
+    let metadataHeader = '';
+    try {
+      const apiUrl = `https://api.github.com/repos/${ref.owner}/${ref.repo}/pulls/${ref.id}`;
+      const apiRes = await fetch(apiUrl, {
+        headers: {
+          'User-Agent': 'AI-Review-Platform',
+          'Accept': 'application/vnd.github.v3+json',
+          ...(token ? { 'Authorization': `token ${token}` } : {}),
+        },
+      });
+      if (apiRes.ok) {
+        const prData = (await apiRes.json()) as any;
+        metadataHeader = `# Pull Request Metadata:\n# Source Branch: ${prData.head?.ref || ''}\n# Target Branch: ${prData.base?.ref || ''}\n# PR Title: ${prData.title || ''}\n\n`;
+      }
+    } catch {
+      // ignore metadata error
+    }
+
+    return metadataHeader + text;
   }
 
   throw new Error(`Provider ${ref.provider} is not supported for fetching diffs.`);
@@ -316,6 +344,11 @@ function parseDiffToFiles(diffText: string): { path: string, text: string }[] {
   });
 
   app.post("/api/review", async (req, res) => {
+    // Prevent request timeout on long-running multi-agent reviews
+    req.setTimeout(600_000);
+    res.setTimeout(600_000);
+    res.setHeader('Connection', 'keep-alive');
+
     try {
       const body = req.body;
       if (!body.diff || typeof body.diff !== 'string' || body.diff.trim().length === 0) {
@@ -494,9 +527,14 @@ function parseDiffToFiles(diffText: string): { path: string, text: string }[] {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
+
+  // Keep connections alive during deep AI multi-agent reviews (10 mins)
+  server.timeout = 600_000;
+  server.keepAliveTimeout = 120_000;
+  server.headersTimeout = 610_000;
 }
 
 startServer().catch(console.error);

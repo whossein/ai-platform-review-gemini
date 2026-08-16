@@ -34,6 +34,12 @@ export interface ProjectContext {
   readonly packageInfo?: Readonly<Record<string, unknown>>;
   readonly tsConfig?: Readonly<Record<string, unknown>>;
   readonly lintConfig?: Readonly<Record<string, unknown>>;
+  /** Documentation, contributing guidelines, and custom rules discovered in docs/ or root */
+  readonly guidelines?: readonly { readonly path: string; readonly content: string }[];
+  /** Lint rules and conventions extracted from project config files */
+  readonly lintRules?: readonly { readonly name: string; readonly description: string }[];
+  /** Custom rules or instructions discovered in the repository */
+  readonly customRules?: readonly string[];
 }
 
 /**

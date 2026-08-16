@@ -112,6 +112,7 @@ export interface SpecialistSpec {
 }
 
 export const SPECIALISTS: readonly SpecialistSpec[] = [
+  { id: 'agent.contributing-reviewer', name: 'Contributing & Governance Reviewer', goal: 'Docs, release notes (release-change), branch names, commit conventions & PR template compliance', focus: 'governance, contributing, docs', priority: 70, preferredTier: 'mid' },
   { id: 'agent.react-reviewer', name: 'React Reviewer', goal: 'React correctness & idioms', focus: 'react', priority: 60, preferredTier: 'mid' },
   { id: 'agent.dotnet-reviewer', name: '.NET Core & C# Reviewer', goal: '.NET idioms & async', focus: 'dotnet, csharp', priority: 60, preferredTier: 'mid' },
   { id: 'agent.python-reviewer', name: 'Python Reviewer', goal: 'PEP-8 & idioms', focus: 'python', priority: 60, preferredTier: 'mid' },
@@ -129,14 +130,17 @@ export const SPECIALISTS: readonly SpecialistSpec[] = [
 
 export function makeSpecialistDefinition(spec: SpecialistSpec, env?: Record<string, string>): AgentDefinition {
   const language = resolveCommentLanguage(env);
+  const extraContext = spec.id === 'agent.contributing-reviewer'
+    ? ` Check if 'release-change' or CHANGELOG.md is updated when functional code is modified. Check docs/ and docs/contributing/ rules, branch naming conventions (e.g. feat/*, fix/*), commit messages (Conventional Commits), and PR template compliance.`
+    : '';
   return {
     id: spec.id as AgentId,
     name: spec.name,
     goal: spec.goal,
-    description: `${spec.name}: reviews changed lines for ${spec.focus} issues.`,
+    description: `${spec.name}: reviews changed lines for ${spec.focus} issues.${extraContext}`,
     // The system prompt carries the FOCUS marker the model keys on, plus the
     // strict-JSON instruction required by ADR-0008.
-    systemPrompt: `You are the ${spec.name}. FOCUS:${spec.focus}. Review the diff in the user message and return ONLY JSON matching {issues,confidence,summary}. Write all natural-language text in ${language}. No prose.`,
+    systemPrompt: `You are the ${spec.name}. FOCUS:${spec.focus}.${extraContext} Review the diff in the user message and return ONLY JSON matching {issues,confidence,summary}. Write all natural-language text in ${language}. No prose.`,
     allowedTools: [] as ToolId[],
     allowedSkills: [] as SkillId[],
     outputSchema: {},
@@ -156,6 +160,14 @@ export function makeSpecialistDefinition(spec: SpecialistSpec, env?: Record<stri
 export function makeSpecialistHandler(spec: SpecialistSpec, env?: Record<string, string>): AgentHandler {
   const agentId = spec.id as AgentId;
   const language = resolveCommentLanguage(env);
+  const extraGuideline = spec.id === 'agent.contributing-reviewer'
+    ? `\nGOVERNANCE & CONTRIBUTING RULES TO ENFORCE:
+1. Dynamic Project Rules: Inspect the "REPOSITORY & PROJECT GUIDELINES" section in the rendered context (extracted from docs/, docs/contributing/, and root files like CONTRIBUTING.md, AGENTS.md, .cursorrules, etc.).
+2. Flexible Branch Naming & Commits: DO NOT enforce a single rigid branch or commit pattern. Instead, evaluate branch names and commit messages STRICTLY AGAINST whatever conventions are defined in the project's own documentation (e.g. <scope>/<type>/<short desc>-[task jira num] or any other custom team convention). If no specific branch or commit convention is defined in the documentation, do NOT generate any branch/commit naming issues.
+3. Release Documentation: If the project's documentation or files require 'release-change' (or CHANGELOG.md) and functional code was changed, verify that it was updated with clear descriptions.
+4. PR Guidelines & Lint: Check PR template completeness and adherence to repository-specific coding/linting standards if defined in docs.`
+    : '';
+
   return {
     run: async (ctx) => {
       const rendered = ctx.seedSlice?.rendered ?? '';
@@ -163,7 +175,7 @@ export function makeSpecialistHandler(spec: SpecialistSpec, env?: Record<string,
         messages: [
           {
             role: 'system',
-            content: `You are the ${spec.name}. FOCUS:${spec.focus}. Return ONLY JSON, no markdown fences, no prose, matching exactly: {"issues":[{"title":string,"description":string,"severity":"critical"|"high"|"medium"|"low"|"info","confidence":number (0..1, REQUIRED on every issue),"reason":string,"suggestion":string,"file":string,"line":number,"category":string}],"confidence":number,"summary":string}. Write the "title", "description", "reason", "suggestion", and "summary" text in ${language} — keep JSON keys, file paths, code identifiers, and severity/category values in English. Every issue MUST include a numeric "confidence" — omitting it causes the issue to be silently discarded.`,
+            content: `You are the ${spec.name}. FOCUS:${spec.focus}.${extraGuideline} Return ONLY JSON, no markdown fences, no prose, matching exactly: {"issues":[{"title":string,"description":string,"severity":"critical"|"high"|"medium"|"low"|"info","confidence":number (0..1, REQUIRED on every issue),"reason":string,"suggestion":string,"file":string,"line":number,"category":string}],"confidence":number,"summary":string}. Write the "title", "description", "reason", "suggestion", and "summary" text in ${language} — keep JSON keys, file paths, code identifiers, and severity/category values in English. Every issue MUST include a numeric "confidence" — omitting it causes the issue to be silently discarded.`,
             cacheable: true,
           },
           { role: 'user', content: rendered },

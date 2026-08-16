@@ -101,6 +101,13 @@ function isRelevant(
     case 'performance':
     case 'code':
       return hasCodeFiles;
+
+    case 'governance':
+    case 'governance, contributing, docs':
+    case 'contributing':
+    case 'docs':
+      // Runs whenever changes are introduced to audit release notes, docs, branch names, commit messages & contributing rules
+      return true;
       
     default:
       // If we don't know the focus (e.g. custom user skills), default to running it 

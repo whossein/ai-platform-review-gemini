@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { requestReview, requestEstimate, checkHealth, type ReviewIssue, type ReviewResponse, type EstimateResponse } from './api.js';
 import { useAppConfig } from './Settings.js';
 
@@ -102,9 +102,11 @@ export function ReviewView(): JSX.Element {
   const [estimate, setEstimate] = useState<EstimateResponse | null>(null);
   const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState<boolean>(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [estimating, setEstimating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [apiUp, setApiUp] = useState<boolean | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [config] = useAppConfig();
   const [reportMode, setReportMode] = useState<'visual' | 'markdown' | 'inline' | 'json'>('visual');
   const [publishing, setPublishing] = useState<boolean>(false);
@@ -112,6 +114,30 @@ export function ReviewView(): JSX.Element {
   const [language, setLanguage] = useState<'en' | 'fa'>('en');
   const [applying, setApplying] = useState<boolean>(false);
   const [applySuccess, setApplySuccess] = useState<boolean>(false);
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+    if (loading) {
+      setElapsedSeconds(0);
+      interval = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setElapsedSeconds(0);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [loading]);
+
+  const onCancelReview = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setLoading(false);
+    setError('Review process cancelled by user.');
+  };
 
   const isInputValid =
     (inputMode === 'diff' && diff.trim().length > 0) ||
@@ -256,10 +282,19 @@ export function ReviewView(): JSX.Element {
       return;
     }
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       const envOverrides = buildEnvOverrides(config, language);
 
-      const res = await requestReview(diffToReview, threshold, envOverrides, Array.from(selectedAgents));
+      const res = await requestReview(
+        diffToReview, 
+        threshold, 
+        envOverrides, 
+        Array.from(selectedAgents),
+        controller.signal
+      );
       setResult(res);
       
       try {
@@ -277,10 +312,15 @@ export function ReviewView(): JSX.Element {
       } catch (e) {
         console.warn('Failed to save to history', e);
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'review failed');
+    } catch (e: any) {
+      if (e?.name === 'AbortError' || controller.signal.aborted) {
+        setError('Review process cancelled.');
+      } else {
+        setError(e instanceof Error ? e.message : 'review failed');
+      }
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
     }
   }
 
@@ -607,6 +647,152 @@ export function ReviewView(): JSX.Element {
                 </>
               );
             })()}
+          </div>
+        </div>
+      )}
+
+      {/* Live Active Review Progress Monitor */}
+      {loading && (
+        <div style={{
+          background: 'var(--panel)',
+          border: '1px solid rgba(99, 102, 241, 0.4)',
+          borderRadius: '12px',
+          padding: '1.5rem',
+          marginBottom: '1.5rem',
+          boxShadow: '0 8px 24px rgba(99, 102, 241, 0.12)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          {/* Animated top progress indicator */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '3px',
+            background: 'linear-gradient(90deg, var(--accent) 0%, #a855f7 50%, var(--accent) 100%)',
+            backgroundSize: '200% 100%',
+            animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+          }} />
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '50%',
+                background: 'rgba(99, 102, 241, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--accent)',
+                fontSize: '1.2rem'
+              }}>
+                ⚡
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--text)', fontWeight: 600 }}>
+                  AI Review In Progress / فرآیند بررسی فعال است
+                </h3>
+                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.82rem', color: 'var(--muted)' }}>
+                  Deep multi-agent code analysis running without timeout
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{
+                background: 'rgba(99, 102, 241, 0.1)',
+                border: '1px solid rgba(99, 102, 241, 0.25)',
+                borderRadius: '6px',
+                padding: '0.35rem 0.75rem',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+                color: 'var(--accent)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                fontFamily: 'monospace'
+              }}>
+                ⏱ {Math.floor(elapsedSeconds / 60)}:{(elapsedSeconds % 60).toString().padStart(2, '0')}s
+              </div>
+              <button
+                type="button"
+                onClick={onCancelReview}
+                className="secondary-button"
+                style={{ padding: '0.4rem 0.85rem', fontSize: '0.8rem', color: 'var(--high)', borderColor: 'rgba(239, 68, 68, 0.3)' }}
+              >
+                لغو (Cancel)
+              </button>
+            </div>
+          </div>
+
+          {/* Stepper Phases */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem' }}>
+            <div style={{
+              background: elapsedSeconds >= 0 ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg)',
+              border: `1px solid ${elapsedSeconds < 4 ? 'var(--accent)' : 'rgba(99, 102, 241, 0.3)'}`,
+              borderRadius: '8px',
+              padding: '0.75rem'
+            }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Phase 1</div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text)' }}>
+                {elapsedSeconds < 4 ? '🔄 Ingesting & Slicing Context' : '✓ Context Slice Prepared'}
+              </div>
+            </div>
+
+            <div style={{
+              background: elapsedSeconds >= 4 ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg)',
+              border: `1px solid ${elapsedSeconds >= 4 && elapsedSeconds < 10 ? 'var(--accent)' : 'rgba(99, 102, 241, 0.3)'}`,
+              borderRadius: '8px',
+              padding: '0.75rem'
+            }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Phase 2</div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text)' }}>
+                {elapsedSeconds < 4 ? '⏳ Static Analysis Pending' : (elapsedSeconds < 10 ? '🔄 Static Rules & Routing' : '✓ Static Rules & Routing Done')}
+              </div>
+            </div>
+
+            <div style={{
+              background: elapsedSeconds >= 10 ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg)',
+              border: `1px solid ${elapsedSeconds >= 10 && elapsedSeconds < 45 ? 'var(--accent)' : 'rgba(99, 102, 241, 0.3)'}`,
+              borderRadius: '8px',
+              padding: '0.75rem'
+            }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Phase 3</div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text)' }}>
+                {elapsedSeconds < 10 ? '⏳ Specialist Reviewers' : (elapsedSeconds < 45 ? '🧠 Parallel AI Agents Thinking...' : '✓ Agent Analysis Complete')}
+              </div>
+            </div>
+
+            <div style={{
+              background: elapsedSeconds >= 45 ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg)',
+              border: `1px solid ${elapsedSeconds >= 45 ? 'var(--accent)' : 'rgba(99, 102, 241, 0.2)'}`,
+              borderRadius: '8px',
+              padding: '0.75rem'
+            }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Phase 4</div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text)' }}>
+                {elapsedSeconds < 45 ? '⏳ Critic & Adjudication' : '⚖️ Adjudicating & Rendering Report...'}
+              </div>
+            </div>
+          </div>
+
+          <div style={{
+            background: 'rgba(34, 197, 94, 0.08)',
+            border: '1px solid rgba(34, 197, 94, 0.25)',
+            borderRadius: '8px',
+            padding: '0.75rem 1rem',
+            fontSize: '0.82rem',
+            color: 'var(--text)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            <span style={{ fontSize: '1rem' }}>🛡️</span>
+            <span>
+              ارتباط زنده است: به دلیل پردازش چندعاملی و تحلیل دقیق کد، این فرآیند ممکن است بین ۳۰ تا ۹۰ ثانیه زمان ببرد. سیستم با تایم‌اوت ۱۰ دقیقه‌ای و سقف منابع باز پیکربندی شده و قطع نخواهد شد.
+            </span>
           </div>
         </div>
       )}

@@ -88,8 +88,47 @@ export class DefaultContextEngine implements ContextEngine {
     const files: FileContext[] = [];
     const changedSymbols: SymbolInfo[] = [];
     const dependencyGraph: Record<string, readonly string[]> = {};
+    const discoveredGuidelines: { path: string; content: string }[] = [];
+    let detectedLintConfig: Record<string, unknown> | undefined = undefined;
+    const discoveredRules: string[] = [];
 
     for (const src of sources) {
+      const p = src.path.toLowerCase();
+      const isDocOrRule =
+        p.startsWith('docs/') ||
+        p.includes('/docs/') ||
+        p.endsWith('.md') ||
+        p.endsWith('contributing.md') ||
+        p.endsWith('release-change') ||
+        p.endsWith('release_notes.md') ||
+        p.endsWith('.cursorrules') ||
+        p.endsWith('agents.md') ||
+        p.endsWith('claude.md') ||
+        p.endsWith('rules.md');
+
+      if (isDocOrRule && src.text.trim().length > 0) {
+        discoveredGuidelines.push({
+          path: src.path,
+          content: src.text.trim().slice(0, 4000), // Keep bounded
+        });
+        discoveredRules.push(`[${src.path}] ${src.text.trim().slice(0, 300)}...`);
+      }
+
+      const isLintConfig =
+        p.includes('.eslintrc') ||
+        p.includes('eslint.config') ||
+        p.includes('biome.json') ||
+        p.includes('tslint.json') ||
+        p.includes('.prettierrc');
+
+      if (isLintConfig && src.text.trim().length > 0) {
+        try {
+          detectedLintConfig = JSON.parse(src.text);
+        } catch {
+          detectedLintConfig = { raw: src.text.slice(0, 1000) };
+        }
+      }
+
       const changedLines = changedByFile.get(src.path) ?? new Set<number>();
       const extracted = extractFile(src.path, src.text, changedLines);
       const fileChanged = changedLines.size > 0;
@@ -120,7 +159,11 @@ export class DefaultContextEngine implements ContextEngine {
       files,
       dependencyGraph,
       changedSymbols,
-      project: {},
+      project: {
+        ...(discoveredGuidelines.length > 0 ? { guidelines: discoveredGuidelines } : {}),
+        ...(detectedLintConfig ? { lintConfig: detectedLintConfig } : {}),
+        ...(discoveredRules.length > 0 ? { customRules: discoveredRules } : {}),
+      },
     };
     this.store.set(handle, shared);
     return { ok: true, value: shared };
@@ -150,7 +193,7 @@ export class DefaultContextEngine implements ContextEngine {
 
     // Render minimally: changed files first, then symbol signatures. Bodies are
     // only included when explicitly requested (default: signatures only).
-    const rendered = renderSlice(files, request.includeBodies ?? false);
+    const rendered = renderSlice(files, request.includeBodies ?? false, shared.project);
 
     // Budget-aware trimming: if a token budget is set and we exceed it, drop the
     // lowest-value content (unchanged files) until we fit.
@@ -158,7 +201,7 @@ export class DefaultContextEngine implements ContextEngine {
     let compressed = false;
     if (request.tokenBudget && estimateTokens(rendered) > request.tokenBudget) {
       const changedOnly = files.filter((f) => f.changed);
-      finalText = renderSlice(changedOnly, request.includeBodies ?? false);
+      finalText = renderSlice(changedOnly, request.includeBodies ?? false, shared.project);
       compressed = true;
     }
 
@@ -177,8 +220,33 @@ export class DefaultContextEngine implements ContextEngine {
 }
 
 /** Renders a compact, human/LLM-readable view of the given files. */
-function renderSlice(files: readonly FileContext[], includeBodies: boolean): string {
+function renderSlice(
+  files: readonly FileContext[],
+  includeBodies: boolean,
+  project?: import('@ai-review/core').ProjectContext
+): string {
   const parts: string[] = [];
+
+  // If project guidelines or docs rules were discovered, render them first so agents see repo rules!
+  if (project?.guidelines && project.guidelines.length > 0) {
+    parts.push('=== REPOSITORY & PROJECT GUIDELINES (from docs/ and project root) ===');
+    for (const guide of project.guidelines) {
+      parts.push(`--- File: ${guide.path} ---`);
+      parts.push(guide.content);
+      parts.push('');
+    }
+    parts.push('================================================================');
+    parts.push('');
+  }
+
+  // If lint config or lint rules were found, render them
+  if (project?.lintConfig) {
+    parts.push('=== REPOSITORY LINT & CODE CONVENTIONS ===');
+    parts.push(JSON.stringify(project.lintConfig, null, 2));
+    parts.push('==========================================');
+    parts.push('');
+  }
+
   for (const f of files) {
     parts.push(`# ${f.path}${f.changed ? ' (changed)' : ''}`);
     if (f.imports.length > 0) parts.push(`imports: ${f.imports.join(', ')}`);

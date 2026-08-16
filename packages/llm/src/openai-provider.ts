@@ -141,6 +141,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
     const requestHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      'Connection': 'keep-alive',
     };
 
     if (rawKey) {
@@ -162,19 +163,31 @@ export class OpenAICompatibleProvider implements LLMProvider {
       targetEndpoint = `${targetEndpoint}${separator}key=${encodeURIComponent(rawKey)}`;
     }
 
+    let signal: AbortSignal | undefined;
+    try {
+      if (typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal) {
+        signal = AbortSignal.timeout(240_000); // 4 minutes timeout per individual agent query
+      }
+    } catch {
+      // signal timeout not supported
+    }
+
     let res: Response;
     try {
       res = await this.fetchImpl(targetEndpoint, {
         method: 'POST',
         headers: requestHeaders,
         body: JSON.stringify(body),
+        ...(signal ? { signal } : {}),
       });
     } catch (cause: any) {
+      const isTimeout = cause?.name === 'TimeoutError' || cause?.message?.includes('timeout') || cause?.message?.includes('aborted');
+      const hint = isTimeout ? ' (Request timed out after 240s)' : '';
       return { 
         ok: false, 
         error: llmError(
           'llm.request_failed', 
-          `LLM request to "${targetEndpoint}" failed: ${cause?.message || String(cause)}`, 
+          `LLM request to "${targetEndpoint}" failed${hint}: ${cause?.message || String(cause)}`, 
           cause
         ) 
       };

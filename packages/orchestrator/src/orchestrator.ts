@@ -81,10 +81,21 @@ export interface RunOptions {
 export async function runReview(opts: RunOptions): Promise<ReviewResult> {
   const reviewId = (opts.reviewId ?? 'review.local') as ReviewId;
   const threshold = opts.confidenceThreshold ?? 0.6;
+  
+  const envExecutionBudgetMs = opts.env?.AI_REVIEW_EXECUTION_BUDGET_MS
+    ? parseInt(opts.env.AI_REVIEW_EXECUTION_BUDGET_MS, 10)
+    : undefined;
+  const envDollarBudget = opts.env?.AI_REVIEW_DOLLAR_BUDGET
+    ? parseFloat(opts.env.AI_REVIEW_DOLLAR_BUDGET)
+    : undefined;
+  const envTokenBudget = opts.env?.AI_REVIEW_TOKEN_BUDGET
+    ? parseInt(opts.env.AI_REVIEW_TOKEN_BUDGET, 10)
+    : undefined;
+
   const budget: Budget = opts.budget ?? {
-    tokenBudget: 200_000,
-    dollarBudget: 1,
-    executionBudgetMs: 120_000,
+    tokenBudget: envTokenBudget ?? 2_000_000,
+    dollarBudget: envDollarBudget ?? 25,
+    executionBudgetMs: envExecutionBudgetMs ?? 600_000, // 10 minutes total execution allowance
   };
   const maxRetries = opts.maxRetries ?? 2;
   const started = Date.now();

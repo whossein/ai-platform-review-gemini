@@ -60,8 +60,14 @@ export async function requestEstimate(diff: string, env?: Record<string, string>
   return (await res.json()) as EstimateResponse;
 }
 
-export async function requestReview(diff: string, threshold?: number, env?: Record<string, string>, selectedSpecialists?: readonly string[]): Promise<ReviewResponse> {
-  const res = await fetch('/api/review', {
+export async function requestReview(
+  diff: string, 
+  threshold?: number, 
+  env?: Record<string, string>, 
+  selectedSpecialists?: readonly string[],
+  signal?: AbortSignal
+): Promise<ReviewResponse> {
+  const reqInit: RequestInit = {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ 
@@ -70,7 +76,12 @@ export async function requestReview(diff: string, threshold?: number, env?: Reco
       ...(env ? { env } : {}),
       ...(selectedSpecialists ? { selectedSpecialists } : {}) 
     }),
-  });
+  };
+  if (signal) {
+    reqInit.signal = signal;
+  }
+
+  const res = await fetch('/api/review', reqInit);
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? `review failed (${res.status})`);
