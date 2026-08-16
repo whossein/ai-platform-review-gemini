@@ -6,7 +6,9 @@ export interface AIProviderConfig {
   apiKey: string;
   model: string;
   baseUrl: string;
-  tier?: 'cheap' | 'mid' | 'premium' | 'local' | string;
+  tier?: 'cheap' | 'mid' | 'premium' | 'local' | string | undefined;
+  inputCostPer1M?: number | undefined;
+  outputCostPer1M?: number | undefined;
 }
 
 export interface AppConfig {

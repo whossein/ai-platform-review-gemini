@@ -53,6 +53,10 @@ export interface ProviderPreset {
   readonly requiresApiKey: boolean;
   /** Default cost tier used by the router until richer pricing is configured. */
   readonly defaultTier: ModelTier;
+  /** Default USD per 1M input tokens */
+  readonly defaultInputCostPer1M?: number;
+  /** Default USD per 1M output tokens */
+  readonly defaultOutputCostPer1M?: number;
   /** Common aliases accepted for `AI_REVIEW_LLM_PROVIDER`. */
   readonly aliases?: readonly string[];
 }
@@ -71,6 +75,8 @@ export const PROVIDER_CATALOG: readonly ProviderPreset[] = [
     defaultModel: 'gpt-4o-mini',
     requiresApiKey: true,
     defaultTier: 'cheap',
+    defaultInputCostPer1M: 0.15,
+    defaultOutputCostPer1M: 0.60,
     aliases: ['gpt', 'openai-compatible'],
   },
   {
@@ -83,6 +89,8 @@ export const PROVIDER_CATALOG: readonly ProviderPreset[] = [
     defaultModel: 'claude-3-5-haiku-latest',
     requiresApiKey: true,
     defaultTier: 'cheap',
+    defaultInputCostPer1M: 0.80,
+    defaultOutputCostPer1M: 4.00,
     aliases: ['claude'],
   },
   {
@@ -95,6 +103,8 @@ export const PROVIDER_CATALOG: readonly ProviderPreset[] = [
     defaultModel: 'gemini-1.5-flash',
     requiresApiKey: true,
     defaultTier: 'cheap',
+    defaultInputCostPer1M: 0.075,
+    defaultOutputCostPer1M: 0.30,
     aliases: ['google'],
   },
   {
@@ -106,6 +116,8 @@ export const PROVIDER_CATALOG: readonly ProviderPreset[] = [
     defaultModel: 'anthropic/claude-3.5-sonnet',
     requiresApiKey: true,
     defaultTier: 'mid',
+    defaultInputCostPer1M: 3.00,
+    defaultOutputCostPer1M: 15.00,
   },
   {
     key: 'ollama',
@@ -116,6 +128,8 @@ export const PROVIDER_CATALOG: readonly ProviderPreset[] = [
     defaultModel: 'qwen2.5-coder',
     requiresApiKey: false, // local server needs no key
     defaultTier: 'cheap',
+    defaultInputCostPer1M: 0,
+    defaultOutputCostPer1M: 0,
     aliases: ['local'],
   },
   {
@@ -128,6 +142,8 @@ export const PROVIDER_CATALOG: readonly ProviderPreset[] = [
     defaultModel: 'gpt-4o-mini',
     requiresApiKey: true,
     defaultTier: 'cheap',
+    defaultInputCostPer1M: 0.15,
+    defaultOutputCostPer1M: 0.60,
     aliases: ['azure-openai'],
   },
   {
@@ -139,6 +155,8 @@ export const PROVIDER_CATALOG: readonly ProviderPreset[] = [
     defaultModel: 'deepseek-chat',
     requiresApiKey: true,
     defaultTier: 'cheap',
+    defaultInputCostPer1M: 0.14,
+    defaultOutputCostPer1M: 0.28,
   },
   {
     key: 'custom',
@@ -149,6 +167,8 @@ export const PROVIDER_CATALOG: readonly ProviderPreset[] = [
     defaultModel: 'gpt-4o-mini',
     requiresApiKey: false,
     defaultTier: 'cheap',
+    defaultInputCostPer1M: 0.15,
+    defaultOutputCostPer1M: 0.60,
     aliases: ['proxy', 'gateway', 'self-hosted'],
   },
 ];

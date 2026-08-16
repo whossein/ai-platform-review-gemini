@@ -49,7 +49,7 @@ function IssueCard({ issue }: { issue: ReviewIssue }): JSX.Element {
 
 function buildEnvOverrides(config: any, language: string) {
   const envOverrides: Record<string, string> = {
-    AI_REVIEW_LLM_PROVIDER: config.AI_REVIEW_LLM_PROVIDER || 'openai',
+    AI_REVIEW_LLM_PROVIDER: config.AI_REVIEW_LLM_PROVIDER || 'gemini',
     AI_REVIEW_COMMENT_LANGUAGE: language
   };
   if (config.AI_REVIEW_LLM_API_KEY) envOverrides.AI_REVIEW_LLM_API_KEY = config.AI_REVIEW_LLM_API_KEY;
@@ -58,6 +58,20 @@ function buildEnvOverrides(config: any, language: string) {
 
   if (config.AI_PROVIDERS && config.AI_PROVIDERS.length > 0) {
     envOverrides.AI_PROVIDERS_JSON = JSON.stringify(config.AI_PROVIDERS);
+    
+    // Find the currently active provider if AI_REVIEW_LLM_PROVIDER matches an ID or provider name
+    const active = config.AI_PROVIDERS.find(
+      (p: any) => p.id === config.AI_REVIEW_LLM_PROVIDER || p.provider === config.AI_REVIEW_LLM_PROVIDER
+    );
+    if (active) {
+      envOverrides.AI_REVIEW_LLM_PROVIDER = active.provider;
+      if (active.apiKey) envOverrides.AI_REVIEW_LLM_API_KEY = active.apiKey;
+      if (active.model) envOverrides.AI_REVIEW_LLM_MODEL = active.model;
+      if (active.baseUrl) envOverrides.AI_REVIEW_LLM_BASE_URL = active.baseUrl;
+      if (active.inputCostPer1M !== undefined) envOverrides.AI_REVIEW_INPUT_COST_PER_1M = String(active.inputCostPer1M);
+      if (active.outputCostPer1M !== undefined) envOverrides.AI_REVIEW_OUTPUT_COST_PER_1M = String(active.outputCostPer1M);
+    }
+
     for (const p of config.AI_PROVIDERS) {
       const prefix = p.provider.toUpperCase();
       if (p.apiKey) envOverrides[`AI_REVIEW_${prefix}_API_KEY`] = p.apiKey;
@@ -460,7 +474,7 @@ export function ReviewView(): JSX.Element {
           </div>
           
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {!estimate && !result && (
+            {!estimate ? (
               <button 
                 onClick={() => void onEstimate()} 
                 disabled={estimating || loading || !canEstimate}
@@ -469,9 +483,7 @@ export function ReviewView(): JSX.Element {
               >
                 {estimating ? 'Analyzing...' : 'Run Pre-Review & Estimate'}
               </button>
-            )}
-
-            {estimate && !result && (
+            ) : (
               <button 
                 onClick={() => void onEstimate()} 
                 disabled={estimating || loading || !canEstimate}
@@ -499,7 +511,7 @@ export function ReviewView(): JSX.Element {
         </div>
       </div>
 
-      {estimate && !result && (
+      {estimate && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '1.5rem' }}>
           {estimate.deterministicIssues && estimate.deterministicIssues.length > 0 && (
             <div style={{ background: 'rgba(255, 171, 0, 0.05)', border: '1px solid rgba(255, 171, 0, 0.3)', padding: '1.25rem', borderRadius: '12px' }}>
@@ -520,25 +532,45 @@ export function ReviewView(): JSX.Element {
               AI Review Estimation
             </h3>
             {(() => {
-              const tokensPerAgent = estimate.totalAgents > 0 ? estimate.estimatedTokens / estimate.totalAgents : 0;
-              const currentEstimatedTokens = tokensPerAgent * currentTotalAgents;
+              const inputTokensPerAgent = estimate.totalAgents > 0 && estimate.estimatedInputTokens 
+                ? estimate.estimatedInputTokens / estimate.totalAgents 
+                : (estimate.totalAgents > 0 ? estimate.estimatedTokens / estimate.totalAgents : 0);
+              const outputTokensPerAgent = estimate.totalAgents > 0 && estimate.estimatedOutputTokens 
+                ? estimate.estimatedOutputTokens / estimate.totalAgents 
+                : 1000;
+              
+              const currentInputTokens = Math.round(inputTokensPerAgent * currentTotalAgents);
+              const currentOutputTokens = Math.round(outputTokensPerAgent * currentTotalAgents);
               const allAgents = Array.from(new Set([...estimate.agents, ...estimate.skipped])).sort();
+
+              const inputRate = estimate.inputCostPer1M !== undefined ? `$${estimate.inputCostPer1M}` : '$0.15';
+              const outputRate = estimate.outputCostPer1M !== undefined ? `$${estimate.outputCostPer1M}` : '$0.60';
 
               return (
                 <>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
                     <div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Agents Active</div>
                       <div style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text)' }}>{currentTotalAgents}</div>
                     </div>
                     <div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Est. Input Tokens</div>
-                      <div style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text)' }}>{Math.round(currentEstimatedTokens).toLocaleString()}</div>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text)' }}>{currentInputTokens.toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Est. Output Tokens</div>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text)' }}>{currentOutputTokens.toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Rate / 1M Tokens</div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text)', marginTop: '0.25rem' }}>
+                        {config.AI_REVIEW_LLM_PROVIDER === 'ollama' ? 'Free (Local)' : `${inputRate} in / ${outputRate} out`}
+                      </div>
                     </div>
                     <div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Est. Cost (USD)</div>
                       <div style={{ fontSize: '1.25rem', fontWeight: 600, color: isOverBudget ? '#f87171' : 'var(--low)' }}>
-                        ~${currentEstimatedCost.toFixed(4)}
+                        ~${currentEstimatedCost.toFixed(5)}
                         {isOverBudget && <span style={{ fontSize: '0.75rem', marginLeft: '0.5rem', color: '#f87171', fontWeight: 'normal' }}>(Exceeds limit of ${budgetLimit?.toFixed(2)})</span>}
                       </div>
                     </div>

@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@ai-review/core": "*",
+    "@ai-review/llm": "*",
     "@ai-review/orchestrator": "*",
     "@ai-review/shared": "*"
   },

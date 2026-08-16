@@ -117,22 +117,76 @@ async function startServer() {
       const skippedAgents = reviewPlan.skipped.map((s: any) => s.spec.name);
       const agentCount = reviewPlan.selected.length;
 
-      const inputTokensPerAgent = Math.ceil(rawDiff.length / 4); 
+      // Estimate input tokens (diff characters / 4 + system/agent prompt overhead)
+      const inputTokensPerAgent = Math.ceil(rawDiff.length / 4) + 600; 
       const totalInputTokens = inputTokensPerAgent * agentCount;
+
+      // Estimate output completion tokens per specialist agent (typically 800-1200 tokens for JSON issue reporting)
+      const outputTokensPerAgent = 1000;
+      const totalOutputTokens = outputTokensPerAgent * agentCount;
+
+      // Resolve pricing based on active provider and custom input/output costs
+      const { resolveProviderPreset } = await import('@ai-review/llm');
+      const providerValue = envOverrides.AI_REVIEW_LLM_PROVIDER ?? 'gemini';
       
-      let estimatedCostUsd = (totalInputTokens / 1000000) * 0.50; 
-      
-      const provider = envOverrides.AI_REVIEW_LLM_PROVIDER ?? 'gemini';
-      
-      if (provider === 'mock' || provider === 'ollama') {
-        estimatedCostUsd = 0;
+      let inputCostPer1M = 0.15;
+      let outputCostPer1M = 0.60;
+
+      // Check if custom pricing configured in AI_PROVIDERS_JSON
+      if (envOverrides.AI_PROVIDERS_JSON) {
+        try {
+          const providersData = JSON.parse(envOverrides.AI_PROVIDERS_JSON);
+          const active = providersData.find(
+            (p: any) => p.id === providerValue || p.provider === providerValue
+          ) || providersData[0];
+
+          if (active) {
+            const preset = resolveProviderPreset(active.provider);
+            if (typeof active.inputCostPer1M === 'number') {
+              inputCostPer1M = active.inputCostPer1M;
+            } else if (preset?.defaultInputCostPer1M !== undefined) {
+              inputCostPer1M = preset.defaultInputCostPer1M;
+            }
+            if (typeof active.outputCostPer1M === 'number') {
+              outputCostPer1M = active.outputCostPer1M;
+            } else if (preset?.defaultOutputCostPer1M !== undefined) {
+              outputCostPer1M = preset.defaultOutputCostPer1M;
+            }
+          }
+        } catch {
+          // ignore json parse error
+        }
+      } else {
+        const preset = resolveProviderPreset(providerValue);
+        if (preset?.defaultInputCostPer1M !== undefined) inputCostPer1M = preset.defaultInputCostPer1M;
+        if (preset?.defaultOutputCostPer1M !== undefined) outputCostPer1M = preset.defaultOutputCostPer1M;
+      }
+
+      if (envOverrides.AI_REVIEW_INPUT_COST_PER_1M) {
+        const parsed = parseFloat(envOverrides.AI_REVIEW_INPUT_COST_PER_1M);
+        if (!isNaN(parsed)) inputCostPer1M = parsed;
+      }
+      if (envOverrides.AI_REVIEW_OUTPUT_COST_PER_1M) {
+        const parsed = parseFloat(envOverrides.AI_REVIEW_OUTPUT_COST_PER_1M);
+        if (!isNaN(parsed)) outputCostPer1M = parsed;
+      }
+
+      let estimatedCostUsd = 0;
+      if (providerValue !== 'mock' && providerValue !== 'ollama') {
+        const inputCost = (totalInputTokens / 1000000) * inputCostPer1M;
+        const outputCost = (totalOutputTokens / 1000000) * outputCostPer1M;
+        estimatedCostUsd = inputCost + outputCost;
       }
 
       res.status(200).json({
         agents: selectedAgents,
         skipped: skippedAgents,
         totalAgents: agentCount,
-        estimatedTokens: totalInputTokens,
+        estimatedTokens: totalInputTokens + totalOutputTokens,
+        estimatedInputTokens: totalInputTokens,
+        estimatedOutputTokens: totalOutputTokens,
+        inputCostPer1M,
+        outputCostPer1M,
         estimatedCostUsd: Number(estimatedCostUsd.toFixed(5)),
         deterministicIssues: deterministicIssues
       });
@@ -174,6 +228,92 @@ function parseDiffToFiles(diffText: string): { path: string, text: string }[] {
   }
   return files;
 }
+
+  app.post("/api/test-provider", async (req, res) => {
+    try {
+      const { provider, apiKey, model, baseUrl } = req.body || {};
+      if (!provider) {
+        res.status(400).json({ ok: false, error: 'Provider name is required' });
+        return;
+      }
+
+      if (provider === 'mock') {
+        res.status(200).json({
+          ok: true,
+          message: 'Mock Provider (Offline mode, zero cost). Ready to simulate code reviews.',
+          latencyMs: 8,
+          model: 'mock-deterministic',
+        });
+        return;
+      }
+
+      const { resolveProviderPreset, OpenAICompatibleProvider } = await import('@ai-review/llm');
+      const preset = resolveProviderPreset(provider) ?? resolveProviderPreset('openai')!;
+      
+      const effectiveBaseUrl = baseUrl || preset.defaultBaseUrl;
+      const effectiveModel = model || preset.defaultModel;
+      const effectiveApiKey = apiKey || process.env[`AI_REVIEW_${preset.envPrefix}_API_KEY`] || process.env.AI_REVIEW_LLM_API_KEY;
+
+      if (!effectiveBaseUrl) {
+        res.status(400).json({
+          ok: false,
+          error: `Base URL is missing for provider "${provider}". Please configure an endpoint URL.`,
+        });
+        return;
+      }
+
+      if (preset.requiresApiKey && !effectiveApiKey && provider !== 'ollama') {
+        res.status(400).json({
+          ok: false,
+          error: `API Key is required for provider "${provider}". Please enter a valid API key or configure it in server environment.`,
+        });
+        return;
+      }
+
+      const startTime = Date.now();
+      const testClient = new OpenAICompatibleProvider({
+        providerId: `test.${provider}`,
+        baseUrl: effectiveBaseUrl,
+        ...(effectiveApiKey ? { apiKey: effectiveApiKey } : {}),
+        models: [{ id: effectiveModel, tier: preset.defaultTier }],
+      });
+
+      const response = await testClient.complete({
+        model: effectiveModel as any,
+        messages: [
+          { role: 'user', content: 'Respond with the single word "OK".' },
+        ],
+        maxTokens: 10,
+        temperature: 0,
+      });
+
+      const latencyMs = Date.now() - startTime;
+
+      if (!response.ok) {
+        res.status(400).json({
+          ok: false,
+          error: response.error.message || 'Provider request failed',
+          latencyMs,
+        });
+        return;
+      }
+
+      const snippet = response.value.content.trim().slice(0, 80) || 'OK';
+      res.status(200).json({
+        ok: true,
+        message: `Successfully connected! Response: "${snippet}"`,
+        latencyMs,
+        model: effectiveModel,
+        usage: response.value.usage,
+      });
+    } catch (err: any) {
+      console.error("Test provider error:", err);
+      res.status(500).json({
+        ok: false,
+        error: err.message || 'Internal server error while testing provider',
+      });
+    }
+  });
 
   app.post("/api/review", async (req, res) => {
     try {

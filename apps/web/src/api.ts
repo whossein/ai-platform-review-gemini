@@ -39,6 +39,10 @@ export interface EstimateResponse {
   readonly skipped: readonly string[];
   readonly totalAgents: number;
   readonly estimatedTokens: number;
+  readonly estimatedInputTokens?: number;
+  readonly estimatedOutputTokens?: number;
+  readonly inputCostPer1M?: number;
+  readonly outputCostPer1M?: number;
   readonly estimatedCostUsd: number;
   readonly deterministicIssues?: readonly ReviewIssue[];
 }
@@ -108,3 +112,27 @@ export async function requestApplyLocal(localPath: string, issues: readonly Revi
   }
   return await res.json();
 }
+
+export interface TestProviderResult {
+  readonly ok: boolean;
+  readonly message?: string;
+  readonly error?: string;
+  readonly latencyMs?: number;
+  readonly model?: string;
+}
+
+export async function requestTestProvider(config: {
+  provider: string;
+  apiKey?: string | undefined;
+  baseUrl?: string | undefined;
+  model?: string | undefined;
+}): Promise<TestProviderResult> {
+  const res = await fetch('/api/test-provider', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(config),
+  });
+  const data = (await res.json().catch(() => ({ ok: false, error: `HTTP ${res.status}` }))) as TestProviderResult;
+  return data;
+}
+

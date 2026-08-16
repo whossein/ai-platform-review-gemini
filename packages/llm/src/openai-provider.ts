@@ -59,6 +59,41 @@ function llmError(code: string, message: string, cause?: unknown): PlatformError
 
 const DEFAULT_CAPS: readonly ModelCapability[] = ['text', 'json_mode'];
 
+/**
+ * Normalizes OpenAI-compatible base URLs:
+ * - Ensures a valid protocol (https:// or http:// for localhost/ip)
+ * - Strips accidental /chat/completions or /chat path suffixes
+ * - Strips trailing slashes
+ */
+export function normalizeBaseUrl(input: string | undefined): string {
+  let url = (input || '').trim();
+  if (!url) return '';
+
+  // 1. Add protocol if missing
+  if (!/^https?:\/\//i.test(url)) {
+    if (/^(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?/i.test(url)) {
+      url = `http://${url}`;
+    } else {
+      url = `https://${url}`;
+    }
+  }
+
+  // 2. Remove trailing slashes
+  url = url.replace(/\/+$/, '');
+
+  // 3. Remove accidental /chat/completions or /chat endpoint suffixes
+  if (url.endsWith('/chat/completions')) {
+    url = url.slice(0, -'/chat/completions'.length);
+  } else if (url.endsWith('/chat')) {
+    url = url.slice(0, -'/chat'.length);
+  }
+
+  // 4. Remove trailing slashes again
+  url = url.replace(/\/+$/, '');
+
+  return url;
+}
+
 export class OpenAICompatibleProvider implements LLMProvider {
   readonly id: ProviderId;
   private readonly baseUrl: string;
@@ -68,8 +103,8 @@ export class OpenAICompatibleProvider implements LLMProvider {
 
   constructor(opts: OpenAICompatibleOptions) {
     this.id = opts.providerId as ProviderId;
-    this.baseUrl = opts.baseUrl.replace(/\/+$/, '');
-    if (opts.apiKey) this.apiKey = opts.apiKey;
+    this.baseUrl = normalizeBaseUrl(opts.baseUrl);
+    if (opts.apiKey) this.apiKey = opts.apiKey.trim();
     this.fetchImpl = opts.fetchImpl ?? fetch;
     this.descriptors = opts.models.map((m) => ({
       id: m.id as ModelId,
@@ -100,9 +135,10 @@ export class OpenAICompatibleProvider implements LLMProvider {
       stream: false,
     };
 
+    const targetEndpoint = `${this.baseUrl}/chat/completions`;
     let res: Response;
     try {
-      res = await this.fetchImpl(`${this.baseUrl}/chat/completions`, {
+      res = await this.fetchImpl(targetEndpoint, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -110,8 +146,15 @@ export class OpenAICompatibleProvider implements LLMProvider {
         },
         body: JSON.stringify(body),
       });
-    } catch (cause) {
-      return { ok: false, error: llmError('llm.request_failed', 'LLM request failed', cause) };
+    } catch (cause: any) {
+      return { 
+        ok: false, 
+        error: llmError(
+          'llm.request_failed', 
+          `LLM request to "${targetEndpoint}" failed: ${cause?.message || String(cause)}`, 
+          cause
+        ) 
+      };
     }
 
     const text = await res.text();
@@ -120,7 +163,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
         ok: false,
         error: llmError(
           'llm.http_error',
-          `LLM API returned HTTP ${res.status}: ${text.slice(0, 200)}`,
+          `LLM API (${targetEndpoint}) returned HTTP ${res.status}: ${text.slice(0, 300)}`,
         ),
       };
     }
@@ -241,15 +284,16 @@ function parseSseChunks<
 export function providerFromEnv(
   env: Record<string, string | undefined> = process.env,
 ): OpenAICompatibleProvider | undefined {
-  // Default to the OpenAI preset when unspecified; unknown values also fall back
-  // to OpenAI so a typo never silently disables real reviewing.
   const providerValue = env['AI_REVIEW_LLM_PROVIDER'];
+  if (providerValue === 'mock') return undefined;
+
   const preset = resolveProviderPreset(providerValue) ?? resolveProviderPreset('openai')!;
   const p = preset.envPrefix;
 
   // Per-provider override → generic fallback → preset default (per field).
   const explicitBaseUrl = env[`AI_REVIEW_${p}_BASE_URL`] ?? env['AI_REVIEW_LLM_BASE_URL'];
-  const baseUrl = explicitBaseUrl ?? preset.defaultBaseUrl;
+  const rawBaseUrl = explicitBaseUrl ?? preset.defaultBaseUrl;
+  const baseUrl = rawBaseUrl ? normalizeBaseUrl(rawBaseUrl) : undefined;
   const apiKey = env[`AI_REVIEW_${p}_API_KEY`] ?? env['AI_REVIEW_LLM_API_KEY'];
   const model = env[`AI_REVIEW_${p}_MODEL`] ?? env['AI_REVIEW_LLM_MODEL'] ?? preset.defaultModel;
 
@@ -268,28 +312,61 @@ export function providerFromEnv(
     providerId: preset.providerId,
     baseUrl,
     ...(apiKey ? { apiKey } : {}),
-    models: [{ id: model, tier: preset.defaultTier }],
+    models: [{
+      id: model,
+      tier: preset.defaultTier,
+      inputCostPer1M: preset.defaultInputCostPer1M ?? 0,
+      outputCostPer1M: preset.defaultOutputCostPer1M ?? 0,
+    }],
   });
 }
 
 export function providersFromEnv(
   env: Record<string, string | undefined> = process.env,
 ): OpenAICompatibleProvider[] {
+  const providerValue = env['AI_REVIEW_LLM_PROVIDER'];
+  if (providerValue === 'mock') return [];
+
   if (env['AI_PROVIDERS_JSON']) {
     try {
       const providersData = JSON.parse(env['AI_PROVIDERS_JSON']);
       const providers: OpenAICompatibleProvider[] = [];
-      for (const data of providersData) {
+
+      // Sort providers so any matching active provider comes first
+      const sortedProvidersData = [...providersData];
+      if (providerValue) {
+        sortedProvidersData.sort((a, b) => {
+          if (a.id === providerValue || a.provider === providerValue) return -1;
+          if (b.id === providerValue || b.provider === providerValue) return 1;
+          return 0;
+        });
+      }
+
+      for (const data of sortedProvidersData) {
+        if (data.provider === 'mock') continue;
         const preset = resolveProviderPreset(data.provider) ?? resolveProviderPreset('openai')!;
-        const baseUrl = data.baseUrl || preset.defaultBaseUrl;
-        if (!baseUrl) continue;
+        const rawBaseUrl = data.baseUrl || preset.defaultBaseUrl;
+        if (!rawBaseUrl) continue;
+        const baseUrl = normalizeBaseUrl(rawBaseUrl);
         const tier = (data.tier || preset.defaultTier) as ModelTier;
+        const inputCostPer1M = typeof data.inputCostPer1M === 'number'
+          ? data.inputCostPer1M
+          : (preset.defaultInputCostPer1M ?? 0);
+        const outputCostPer1M = typeof data.outputCostPer1M === 'number'
+          ? data.outputCostPer1M
+          : (preset.defaultOutputCostPer1M ?? 0);
+
         providers.push(
           new OpenAICompatibleProvider({
             providerId: data.id ? `provider.${data.provider}-${data.id}` : preset.providerId,
             baseUrl,
             ...(data.apiKey ? { apiKey: data.apiKey } : {}),
-            models: [{ id: data.model || preset.defaultModel, tier }],
+            models: [{
+              id: data.model || preset.defaultModel,
+              tier,
+              inputCostPer1M,
+              outputCostPer1M,
+            }],
           }),
         );
       }

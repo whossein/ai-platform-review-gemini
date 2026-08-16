@@ -21,3 +21,4 @@ export {
 export { plan, changedFiles, type PlanInput, type ReviewPlan } from './planner.js';
 export { critique, type CritiquedIssue } from './critic.js';
 export { DefaultRuleEngine, MapRuleRegistry, DEFAULT_RULES, ruleFindingToIssue } from '@ai-review/config';
+export { resolveProviderPreset, PROVIDER_CATALOG } from '@ai-review/llm';

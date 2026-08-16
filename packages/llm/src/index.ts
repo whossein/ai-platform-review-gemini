@@ -16,6 +16,7 @@ export {
   OpenAICompatibleProvider,
   providerFromEnv,
   providersFromEnv,
+  normalizeBaseUrl,
   type OpenAICompatibleOptions,
   type OpenAICompatibleModel,
 } from './openai-provider.js';
