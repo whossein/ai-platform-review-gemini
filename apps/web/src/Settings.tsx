@@ -17,6 +17,7 @@ export interface AppConfig {
   AI_PROVIDERS?: AIProviderConfig[];
   GITLAB_TOKEN: string;
   GITLAB_BASE_URL: string;
+  GITHUB_TOKEN?: string;
   BUDGET_LIMIT: string;
 }
 
@@ -27,6 +28,7 @@ const DEFAULT_CONFIG: AppConfig = {
   AI_REVIEW_LLM_BASE_URL: '',
   GITLAB_TOKEN: '',
   GITLAB_BASE_URL: '',
+  GITHUB_TOKEN: '',
   BUDGET_LIMIT: '0.5',
 };
 

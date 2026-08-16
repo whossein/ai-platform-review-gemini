@@ -222,10 +222,10 @@ export function SettingsView() {
 
       <div className="settings-card" style={{ background: 'var(--panel)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border)', marginBottom: '1.5rem' }}>
         <h2 style={{ fontSize: '1.1rem', marginTop: 0, marginBottom: '1rem', color: 'var(--text)' }}>Git Provider Settings</h2>
-        <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1rem' }}>Configure credentials for pulling Merge Requests and publishing review comments.</p>
+        <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1rem' }}>Configure credentials for pulling Pull/Merge Requests and publishing review comments.</p>
         
         <div className="form-group">
-          <label>Git Provider Base URL</label>
+          <label>GitLab Base URL</label>
           <input
             type="url"
             value={local.GITLAB_BASE_URL}
@@ -234,12 +234,21 @@ export function SettingsView() {
           />
         </div>
         <div className="form-group">
-          <label>Personal Access Token</label>
+          <label>GitLab Personal Access Token</label>
           <input
             type="password"
             value={local.GITLAB_TOKEN}
             onChange={(e) => setLocal({ ...local, GITLAB_TOKEN: e.target.value })}
             placeholder="glpat-... (Defaults to server env if empty)"
+          />
+        </div>
+        <div className="form-group" style={{ marginBottom: 0 }}>
+          <label>GitHub Personal Access Token (for private repos)</label>
+          <input
+            type="password"
+            value={local.GITHUB_TOKEN || ''}
+            onChange={(e) => setLocal({ ...local, GITHUB_TOKEN: e.target.value })}
+            placeholder="ghp_... (Optional for public repositories)"
           />
         </div>
       </div>

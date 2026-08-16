@@ -16,6 +16,9 @@
     "allowJs": true,
     "jsx": "react-jsx",
     "paths": {
+      "@ai-review/*": [
+        "./packages/*/src/index.ts"
+      ],
       "@/*": [
         "./*"
       ]

@@ -68,6 +68,7 @@ function buildEnvOverrides(config: any, language: string) {
 
   if (config.GITLAB_TOKEN) envOverrides.GITLAB_TOKEN = config.GITLAB_TOKEN;
   if (config.GITLAB_BASE_URL) envOverrides.GITLAB_BASE_URL = config.GITLAB_BASE_URL;
+  if (config.GITHUB_TOKEN) envOverrides.GITHUB_TOKEN = config.GITHUB_TOKEN;
 
   return envOverrides;
 }
@@ -97,6 +98,15 @@ export function ReviewView(): JSX.Element {
   const [language, setLanguage] = useState<'en' | 'fa'>('en');
   const [applying, setApplying] = useState<boolean>(false);
   const [applySuccess, setApplySuccess] = useState<boolean>(false);
+
+  const isInputValid =
+    (inputMode === 'diff' && diff.trim().length > 0) ||
+    (inputMode === 'pr' && prUrl.trim().length > 0) ||
+    (inputMode === 'zip' && zipFile !== null) ||
+    (inputMode === 'path' && localPath.trim().length > 0) ||
+    (inputMode === 'repo' && repoUrl.trim().length > 0);
+
+  const canEstimate = (inputMode === 'diff' && diff.trim().length > 0) || (inputMode === 'pr' && prUrl.trim().length > 0);
 
   // Budget calculations
   const budgetLimit = config.BUDGET_LIMIT ? parseFloat(config.BUDGET_LIMIT) : null;
@@ -157,8 +167,15 @@ export function ReviewView(): JSX.Element {
 
     let diffToEstimate = diff;
 
-    if (inputMode !== 'diff') {
-      setError('Estimation is currently only supported for Raw Diff inputs.');
+    if (inputMode === 'pr') {
+      if (!prUrl.trim()) {
+        setError('Please enter a valid Merge Request or Pull Request URL.');
+        setEstimating(false);
+        return;
+      }
+      diffToEstimate = prUrl.trim();
+    } else if (inputMode !== 'diff') {
+      setError('Estimation is currently supported for Raw Diff and PR/MR URL inputs.');
       setEstimating(false);
       return;
     }
@@ -189,9 +206,7 @@ export function ReviewView(): JSX.Element {
         setLoading(false);
         return;
       }
-      setError('Pull Request / Merge Request URL integration is not yet implemented in the backend. Please wait for further instructions.');
-      setLoading(false);
-      return;
+      diffToReview = prUrl.trim();
     }
     
     if (inputMode === 'zip') {
@@ -200,7 +215,7 @@ export function ReviewView(): JSX.Element {
         setLoading(false);
         return;
       }
-      setError('ZIP file upload is not yet implemented in the backend. Please wait for further instructions.');
+      setError('ZIP file upload is not yet implemented in the backend.');
       setLoading(false);
       return;
     }
@@ -211,7 +226,7 @@ export function ReviewView(): JSX.Element {
         setLoading(false);
         return;
       }
-      setError('Local directory processing is not yet implemented in the backend. Please wait for further instructions.');
+      setError('Local directory processing is not yet implemented in the backend.');
       setLoading(false);
       return;
     }
@@ -222,7 +237,7 @@ export function ReviewView(): JSX.Element {
         setLoading(false);
         return;
       }
-      setError('Git repository cloning is not yet implemented in the backend. Please wait for further instructions.');
+      setError('Git repository cloning is not yet implemented in the backend.');
       setLoading(false);
       return;
     }
@@ -444,17 +459,13 @@ export function ReviewView(): JSX.Element {
             </select>
           </div>
           
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {!estimate && !result && (
               <button 
                 onClick={() => void onEstimate()} 
-                disabled={
-                  estimating || loading || 
-                  (inputMode === 'diff' && diff.trim().length === 0) || 
-                  inputMode !== 'diff'
-                }
+                disabled={estimating || loading || !canEstimate}
                 className="secondary-button"
-                style={{ minWidth: '150px', background: 'var(--accent)', color: 'white', border: 'none' }}
+                style={{ minWidth: '150px', background: 'var(--panel)', color: 'var(--text)', border: '1px solid var(--border)' }}
               >
                 {estimating ? 'Analyzing...' : 'Run Pre-Review & Estimate'}
               </button>
@@ -463,7 +474,7 @@ export function ReviewView(): JSX.Element {
             {estimate && !result && (
               <button 
                 onClick={() => void onEstimate()} 
-                disabled={estimating || loading}
+                disabled={estimating || loading || !canEstimate}
                 className="secondary-button"
                 style={{ minWidth: '130px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text)' }}
               >
@@ -471,24 +482,19 @@ export function ReviewView(): JSX.Element {
               </button>
             )}
             
-            {(estimate || result) && (
-              <button 
-                onClick={() => void onReview()} 
-                disabled={
-                  loading || 
-                  isOverBudget ||
-                  (inputMode === 'diff' && diff.trim().length === 0) || 
-                  (inputMode === 'pr' && prUrl.trim().length === 0) ||
-                  (inputMode === 'zip' && !zipFile) ||
-                  (inputMode === 'path' && localPath.trim().length === 0) ||
-                  (inputMode === 'repo' && repoUrl.trim().length === 0)
-                }
-                style={{ minWidth: '150px', opacity: isOverBudget ? 0.5 : 1, cursor: isOverBudget ? 'not-allowed' : undefined }}
-                title={isOverBudget ? "Estimated cost exceeds your budget limit" : undefined}
-              >
-                {loading ? 'Reviewing…' : 'Start AI Code Review'}
-              </button>
-            )}
+            <button 
+              onClick={() => void onReview()} 
+              disabled={
+                loading || 
+                estimating ||
+                isOverBudget ||
+                !isInputValid
+              }
+              style={{ minWidth: '150px', opacity: isOverBudget ? 0.5 : 1, cursor: isOverBudget ? 'not-allowed' : undefined }}
+              title={isOverBudget ? "Estimated cost exceeds your budget limit" : undefined}
+            >
+              {loading ? 'Reviewing…' : 'Start AI Code Review'}
+            </button>
           </div>
         </div>
       </div>

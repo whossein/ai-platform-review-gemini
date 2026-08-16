@@ -17,6 +17,53 @@ if (process.env.GEMINI_API_KEY) {
   }
 }
 
+async function resolveDiffInput(input: string, env: Record<string, string | undefined>): Promise<string> {
+  const trimmed = input.trim();
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+
+  const { parseChangeRequestUrl, GitLabProvider, FetchHttpClient, baseUrlFromChangeRequestUrl } = await import('@ai-review/git');
+  const ref = parseChangeRequestUrl(trimmed);
+  if (!ref) {
+    throw new Error('Unsupported URL format. Please provide a valid GitLab Merge Request or GitHub Pull Request URL.');
+  }
+
+  if (ref.provider === 'gitlab') {
+    const token = env.GITLAB_TOKEN || env.GIT_TOKEN || '';
+    const baseUrl = env.GITLAB_BASE_URL || baseUrlFromChangeRequestUrl(trimmed) || 'https://gitlab.com';
+    const provider = new GitLabProvider(new FetchHttpClient(), { baseUrl, token });
+    const diffRes = await provider.getDiff(ref);
+    if (!diffRes.ok) {
+      throw new Error(`Failed to fetch GitLab MR diff: ${diffRes.error.message}${!token ? ' (A GITLAB_TOKEN may be required in Settings)' : ''}`);
+    }
+    return diffRes.value;
+  }
+
+  if (ref.provider === 'github') {
+    const token = env.GITHUB_TOKEN || env.GIT_TOKEN;
+    const diffUrl = trimmed.endsWith('.diff') ? trimmed : `${trimmed.replace(/\/+$/, '')}.diff`;
+    const headers: Record<string, string> = {
+      'User-Agent': 'AI-Review-Platform',
+      'Accept': 'text/plain, application/vnd.github.v3.diff',
+    };
+    if (token) {
+      headers['Authorization'] = `token ${token}`;
+    }
+    const response = await fetch(diffUrl, { headers });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch GitHub PR diff (HTTP ${response.status})${!token ? ' - if private, please configure GITHUB_TOKEN in Settings' : ''}`);
+    }
+    const text = await response.text();
+    if (!text || text.trim().length === 0) {
+      throw new Error('The pull request diff is empty.');
+    }
+    return text;
+  }
+
+  throw new Error(`Provider ${ref.provider} is not supported for fetching diffs.`);
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -34,10 +81,14 @@ async function startServer() {
         res.status(400).json({ error: 'field "diff" is required' });
         return;
       }
+
+      const envOverrides = body.env ?? {};
+      const mergedEnv = { ...process.env, ...envOverrides };
+      const rawDiff = await resolveDiffInput(body.diff, mergedEnv);
       
       const { plan, SPECIALISTS, DefaultRuleEngine, MapRuleRegistry, DEFAULT_RULES, ruleFindingToIssue } = await import('@ai-review/orchestrator');
       
-      const files = parseDiffToFiles(body.diff);
+      const files = parseDiffToFiles(rawDiff);
       const deterministicIssues = [];
       
       if (files.length > 0) {
@@ -56,10 +107,8 @@ async function startServer() {
         }
       }
 
-      const coveredCategories = [...new Set(deterministicIssues.map(i => i.category))];
-
       const reviewPlan = plan({
-        diff: body.diff,
+        diff: rawDiff,
         specialists: SPECIALISTS,
         coveredCategories: [], // Static analysis doesn't replace the need for LLM reviewers
       });
@@ -68,12 +117,11 @@ async function startServer() {
       const skippedAgents = reviewPlan.skipped.map((s: any) => s.spec.name);
       const agentCount = reviewPlan.selected.length;
 
-      const inputTokensPerAgent = Math.ceil(body.diff.length / 4); 
+      const inputTokensPerAgent = Math.ceil(rawDiff.length / 4); 
       const totalInputTokens = inputTokensPerAgent * agentCount;
       
       let estimatedCostUsd = (totalInputTokens / 1000000) * 0.50; 
       
-      const envOverrides = body.env ?? {};
       const provider = envOverrides.AI_REVIEW_LLM_PROVIDER ?? 'gemini';
       
       if (provider === 'mock' || provider === 'ollama') {
@@ -136,11 +184,12 @@ function parseDiffToFiles(diffText: string): { path: string, text: string }[] {
       }
       
       const mergedEnv = { ...process.env, ...(body.env || {}) };
+      const rawDiff = await resolveDiffInput(body.diff, mergedEnv);
       
-      const parsedFiles = parseDiffToFiles(body.diff);
+      const parsedFiles = parseDiffToFiles(rawDiff);
 
       const result = await runReview({
-        diff: body.diff,
+        diff: rawDiff,
         files: parsedFiles,
         ...(body.threshold !== undefined ? { confidenceThreshold: body.threshold } : {}),
         env: mergedEnv,

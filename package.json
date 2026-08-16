@@ -14,6 +14,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "turbo run build && esbuild server.ts --bundle --platform=node --format=cjs --external:vite --external:express --external:fsevents --sourcemap --outfile=dist/server.cjs",
+    "lint": "turbo run typecheck",
     "start": "node dist/server.cjs",
     "clean": "turbo run clean && rm -rf node_modules",
     "desktop": "concurrently \"npm run start\" \"wait-on http://localhost:3000 && electron .\"",
@@ -23,6 +24,8 @@
     "@ai-review/orchestrator": "*",
     "@ai-review/shared": "*",
     "@ai-review/config": "*",
+    "@ai-review/git": "*",
+    "@ai-review/workflow-engine": "*",
     "express": "^4.21.2",
     "lucide-react": "^1.31.0",
     "turbo": "^2.1.0"
