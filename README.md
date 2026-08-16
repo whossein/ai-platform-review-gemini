@@ -1,6 +1,6 @@
 # AI Code Reviewer 🚀
 
-> **Multi-Agent AI Code Review Platform** with deterministic rule scanning, specialist AI reviewers, cost/tier orchestration, and an extensible plugin & skill engine.
+> **Multi-Agent AI Code Review Platform** with deterministic rule scanning, specialist AI reviewers, cost/tier orchestration, and a unified full-stack web & desktop interface.
 
 ---
 
@@ -12,44 +12,78 @@
 
 ## ✨ Key Features
 
-- 🤖 **Multi-Agent Specialist Reviewers**: Dedicated AI personas evaluating code across distinct domains (Security, Performance, Correctness, Architecture, Style, and Test Coverage).
-- ⚡ **Hybrid Inspection Pipeline**: Runs high-speed deterministic regex/AST linters first to catch obvious issues, feeding structured context to LLMs for deep analytical reviews.
-- 💰 **Tier & Cost Orchestrator**: Accurately estimates token usage and cost before executing reviews, with configurable tiers (`Fast / Balanced / Deep`).
-- 🧠 **Context & Skills Engine**: Plug-and-play skills and context providers that enhance reviewer capabilities with repo-level intelligence.
-- 📊 **Multi-Format Reporting**: Generates reviews in interactive UI, Markdown, JSON, HTML, and SARIF formats.
-- 🖥️ **Full-Stack & Desktop Ready**: Built as a responsive React web application with live SSE streaming, paired with an Express backend and packaged with Electron for desktop use.
-- 🧩 **Monorepo Architecture**: Clean package boundaries orchestrated with Turborepo and TypeScript workspaces.
+- 🤖 **13 Specialized Review Personas**: Focused agents tailored for React, TypeScript, Next.js, Angular, Vue, .NET/C#, Python, Android (Kotlin/Java), iOS (Swift), React Native, Security, Performance, and General Code Quality.
+- ⚡ **Pre-LLM Deterministic Rule Engine**: Zero-cost regex and pattern analysis to immediately detect hardcoded secrets, SQL injection, eval usage, wildcard CORS, console logs, and anti-patterns with 100% confidence.
+- 🎯 **Smart Routing & Planner**: Evaluates diffs and changed file extensions to invoke only relevant specialists, minimizing latency and LLM token usage.
+- ⚖️ **Critic & Corroboration Stage**: Merges multi-agent findings, deduplicates overlapping issues by file and line, and boosts confidence scores when multiple reviewers concur.
+- 🌐 **Multi-Language Output Support**: Generates review comments and recommendations in English, Persian (Farsi), Spanish, French, German, Japanese, Chinese, and more.
+- 💰 **Provider-Agnostic LLM Engine**: Native support for Google Gemini, OpenAI, Anthropic, OpenRouter, DeepSeek, Ollama, Azure OpenAI, and custom OpenAI-compatible proxies with client-side response caching.
+- 🦊 **GitLab Merge Request Integration**: Fetches MR diffs and publishes inline discussions and review summaries directly via GitLab REST API v4.
+- 🖥️ **Interactive Web & Desktop UI**: Real-time review execution with Server-Sent Events (SSE), interactive diff visualizer, historical review archive, and Electron desktop packaging.
 
 ---
 
-## 🏗️ Architecture & Monorepo Structure
+## 🏗️ Architecture & Package Status
 
 ```
 ├── apps/
-│   ├── web/               # React + Tailwind + Vite front-end client
-│   └── api/               # Standalone API server definitions
+│   ├── web/               # [Active] React + Tailwind CSS + Vite frontend
+│   └── api/               # [Active] Standalone Express API definitions
 ├── packages/
-│   ├── agent-runtime/     # Execution runtime and tool dispatcher for AI agents
-│   ├── config/            # Centralized configuration and schema loaders
-│   ├── context-engine/    # Git diff & codebase context aggregation
-│   ├── core/              # Core domain types, entities, and interfaces
-│   ├── git/               # Git utilities, diff parsers, and patch extractors
-│   ├── llm/               # Provider-agnostic LLM interface (Gemini, OpenAI, etc.)
-│   ├── memory/            # Review memory and historical tracking
-│   ├── orchestrator/      # Multi-agent review pipeline coordinator and aggregator
-│   ├── plugins/           # Pluggable rule analyzers and external linter bridges
-│   ├── prompts/           # Specialized system and task prompts for review agents
-│   ├── reporting/         # Output formatting (SARIF, Markdown, JSON, HTML)
-│   ├── repository/        # Repository abstract storage and cache providers
-│   ├── shared/            # Shared utilities, logging, and environment helpers
-│   ├── skills/            # Extensible agent skills and execution handlers
-│   ├── tools/             # AST, code search, and static analysis tools
-│   ├── ui/                # Shared UI component primitives
-│   └── workflow-engine/   # Graph-based review execution workflows
+│   ├── orchestrator/      # [Active] Multi-agent pipeline coordinator, planner, & critic
+│   ├── config/            # [Active] Deterministic rule registry & engine
+│   ├── context-engine/    # [Active] TypeScript AST extraction & context slicing
+│   ├── core/              # [Active] Domain types, result types, & interface definitions
+│   ├── git/               # [Active] GitLab provider, URL parser, & review publisher
+│   ├── llm/               # [Active] Multi-provider OpenAI-compatible LLM client & cache
+│   ├── memory/            # [Active] In-memory review history & snapshot store
+│   ├── repository/        # [Active] Unified diff parser & local file resolver
+│   ├── reporting/         # [Active] Markdown & JSON review renderers
+│   ├── shared/            # [Active] Environment loaders, hashing, & telemetry utilities
+│   ├── workflow-engine/   # [Abstraction] Graph/DAG execution engine (compiled)
+│   ├── agent-runtime/     # [Abstraction] Capability gating runtime (compiled)
+│   ├── prompts/           # [Stub] Reserved for externalized prompt templates
+│   ├── skills/            # [Stub] Reserved for modular agent skill plugins
+│   ├── tools/             # [Stub] Reserved for standalone tool bindings
+│   ├── ui/                # [Stub] Reserved for cross-framework UI components
+│   └── plugins/           # [Draft] Architecture documentation for plugin ecosystem
 ├── server.ts              # Full-stack API & development web server
 ├── main.cjs               # Electron desktop main process entry
 └── turbo.json             # Turborepo task pipeline configuration
 ```
+
+---
+
+## 🔍 Review Pipeline Flow
+
+```mermaid
+flowchart TD
+    A[Git Diff / Code Input / GitLab MR] --> B[Unified Diff Parser & File Resolver]
+    B --> C[Deterministic Rule Engine]
+    C --> D[Planner & Extension Router]
+    D --> E[Cost & Token Estimator]
+    E --> F[Parallel Specialist Agents]
+    subgraph Specialists [Specialist LLM Agents]
+        F1[Security Specialist]
+        F2[Performance Specialist]
+        F3[Framework Specialist e.g., React, .NET]
+        F4[General Code Specialist]
+    end
+    F --> Specialists
+    Specialists --> G[Critic & Corroboration Engine]
+    G --> H[Issue Deduplication & Scoring]
+    H --> I[Output & Delivery]
+    I --> I1[Interactive Web UI / SSE]
+    I --> I2[Markdown / JSON Report]
+    I --> I3[GitLab Inline Discussion Comments]
+```
+
+1. **Diff Ingestion**: Input patch or Git repository diff is parsed into structured files and hunks.
+2. **Deterministic Scan**: Static rules inspect changed lines for zero-cost immediate findings (e.g., secrets, SQL injection, eval).
+3. **Planning & Routing**: The planner selects matching specialist reviewers based on file types (`.tsx`, `.cs`, `.py`, etc.).
+4. **Agent Execution**: Selected specialists execute in parallel using tailored domain prompts and target language preferences.
+5. **Critique & Deduplication**: Overlapping findings are merged, severity is adjusted, and confidence is reinforced.
+6. **Delivery**: Findings stream to the web UI, write inline annotations, or export as Markdown/JSON.
 
 ---
 
@@ -58,11 +92,11 @@
 ### Prerequisites
 
 - **Node.js**: `v18.0.0` or higher
-- **npm** / **bun** / **pnpm**
+- **npm** (v10+) or **bun**
 
 ### 1. Installation
 
-Clone the repository and install all dependencies:
+Clone the repository and install dependencies:
 
 ```bash
 git clone <repository-url>
@@ -72,32 +106,37 @@ npm install
 
 ### 2. Environment Configuration
 
-Copy the example environment file and add your API keys:
+Copy `.env.example` to `.env` and set your API keys:
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` to configure your LLM provider:
+Example `.env` configurations:
 
 ```env
-# Gemini API Key (Default)
-GEMINI_API_KEY="your-gemini-api-key-here"
+# Google Gemini (Default)
+GEMINI_API_KEY="your-gemini-api-key"
 
-# Optional overrides
-AI_REVIEW_LLM_PROVIDER="gemini" # or "openai", "anthropic", "ollama"
-AI_REVIEW_LLM_API_KEY="your-api-key"
+# OpenAI / Compatible Providers (Optional)
+AI_REVIEW_LLM_PROVIDER="openai" # Options: gemini | openai | anthropic | openrouter | deepseek | ollama | azure | custom
+AI_REVIEW_LLM_API_KEY="sk-..."
+AI_REVIEW_LLM_MODEL="gpt-4o"
+AI_REVIEW_LLM_BASE_URL="https://api.openai.com/v1"
+
+# GitLab Integration (Optional)
+GITLAB_TOKEN="glpat-..."
 ```
 
-### 3. Running in Development
+### 3. Running Development Server
 
-Start the development server (runs full-stack Express + Vite at `http://localhost:3000`):
+Start the full-stack server (Express API + Vite React Frontend on port `3000`):
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser to access the application.
+Visit [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
@@ -106,49 +145,43 @@ Open [http://localhost:3000](http://localhost:3000) in your browser to access th
 | Command | Description |
 | :--- | :--- |
 | `npm run dev` | Starts the unified full-stack server in development mode (`tsx server.ts`) |
-| `npm run build` | Builds all packages via Turborepo and compiles the production server bundle |
+| `npm run build` | Builds all packages with Turborepo and compiles the server bundle (`dist/server.cjs`) |
 | `npm run start` | Launches the compiled production server (`node dist/server.cjs`) |
 | `npm run clean` | Cleans build caches and generated artifacts |
-| `npm run desktop` | Starts both the web backend and the Electron desktop application |
+| `npm run desktop` | Launches the full-stack server and the Electron desktop application |
 | `npm run build:desktop` | Packages the desktop application for macOS, Windows, or Linux |
 
 ---
 
-## 🔍 Review Pipeline Overview
+## 🔌 API Endpoints
 
-```mermaid
-flowchart LR
-    A[Git Diff / Code Input] --> B[Diff Parser & File Extractor]
-    B --> C[Deterministic Rule Engine]
-    C --> D[Cost & Token Estimator]
-    D --> E[Multi-Agent Orchestrator]
-    E --> F[Specialist: Security]
-    E --> G[Specialist: Performance]
-    E --> H[Specialist: Correctness]
-    E --> I[Specialist: Architecture]
-    F & G & H & I --> J[Report Aggregator & De-duplication]
-    J --> K[Interactive UI / Markdown / SARIF]
-```
+The full-stack server (`server.ts`) exposes the following endpoints:
 
-1. **Diff Ingestion**: Input patch or Git repository diff is parsed into structured files and hunks.
-2. **Deterministic Scan**: Zero-cost pattern and security checks run instantly.
-3. **Plan & Cost Estimation**: Assesses diff complexity, tokens, and budget.
-4. **Agent Execution**: Runs domain specialist agents concurrently with contextual tools and skills.
-5. **Deduplication & Scoring**: Merges findings, eliminates overlaps, assigns severity scores (`Critical`, `High`, `Medium`, `Low`, `Info`).
-6. **Delivery**: Renders visual findings with suggested code fixes, exportable to multiple formats.
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/health` | Service health status check |
+| `POST` | `/api/estimate` | Computes diff size, deterministic issues, and estimated tokens/cost |
+| `POST` | `/api/review` | Executes a complete review and returns structured JSON results |
+| `POST` | `/api/stream-review` | Server-Sent Events (SSE) stream providing real-time progress and findings |
+| `POST` | `/api/fetch-mr` | Fetches diff and metadata from a GitLab Merge Request URL |
+| `POST` | `/api/publish-mr` | Posts review findings as discussions on GitLab Merge Requests |
+| `POST` | `/api/apply-local` | Writes review findings as inline `// TODO` comments in local source files |
 
 ---
 
-## 🔌 Supported Review Dimensions
+## 🛡️ Deterministic Rules (Zero-Cost)
 
-- 🔒 **Security**: SQL Injection, XSS, Hardcoded secrets/credentials, CSRF, insecure dependencies, privilege escalation.
-- ⚡ **Performance**: N+1 queries, memory leaks, blocking event loops, unmemoized expensive computations, payload bloat.
-- 🎯 **Correctness**: Off-by-one errors, unhandled promise rejections, race conditions, null-pointer dereferences, edge-case bugs.
-- 🏛️ **Architecture & Clean Code**: SOLID violations, tight coupling, code duplication, modularity, maintainability.
-- 🧪 **Testing & Coverage**: Missing unit/integration tests, untestable patterns, edge cases lacking assertions.
+The built-in rule engine detects the following patterns before calling any LLM:
+
+- 🔑 **Hardcoded Secrets**: API keys, private tokens, bearer tokens, AWS credentials.
+- 💉 **SQL Injection**: Unsanitized raw SQL concatenation and template literals.
+- ⚠️ **Dangerous Execution**: `eval()`, `Function()` constructor execution.
+- 🌐 **CORS Wildcard**: Unrestricted `Access-Control-Allow-Origin: *`.
+- ⚛️ **React Anti-Patterns**: Unkeyed array `.map()` iterations.
+- 🧹 **Code Hygiene**: Lingering `console.log`, `TODO`/`FIXME` markers, `any` type usage, and un-awaited async calls.
 
 ---
 
 ## 📄 License
 
-This project is private and maintained for automated AI code review workflows.
+Private repository maintained for automated AI code review workflows.
