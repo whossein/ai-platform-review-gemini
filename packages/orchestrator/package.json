@@ -23,7 +23,8 @@
     "@ai-review/llm": "*",
     "@ai-review/memory": "*",
     "@ai-review/reporting": "*",
-    "@ai-review/shared": "*"
+    "@ai-review/shared": "*",
+    "@ai-review/workflow-engine": "*"
   },
   "devDependencies": {
     "typescript": "^5.5.0",

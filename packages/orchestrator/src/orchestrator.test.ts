@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { LLMClient } from '@ai-review/core';
+import type { LLMClient, ModelId } from '@ai-review/core';
 import { runReview } from './orchestrator.js';
 
 const DIFF = [
@@ -83,4 +83,99 @@ describe('runReview (end-to-end)', () => {
     expect(result.markdown).toContain('agent(s) failed');
     expect(result.issues.some((i) => i.title === 'secret.hardcoded')).toBe(true);
   });
+
+  it('skips agent stages when pre-execution budget reservation cannot be made', async () => {
+    // A tiny token budget of 10 tokens cannot cover the estimated reservation (~1000 tokens)
+    const result = await runReview({
+      diff: DIFF,
+      budget: { tokenBudget: 10, dollarBudget: 1, executionBudgetMs: 30000 },
+    });
+
+    expect(result.errors.some((e) => e.message.includes('Budget reservation denied'))).toBe(true);
+    expect(result.total).toBe(0);
+  });
+
+  it('retries transient errors up to maxRetries and succeeds if a later attempt succeeds', async () => {
+    let callCount = 0;
+    const flakyLlm: LLMClient = {
+      complete: async () => {
+        callCount++;
+        // First 2 calls fail with transient 429 rate limit
+        if (callCount <= 2) {
+          return {
+            ok: false,
+            error: {
+              category: 'provider',
+              code: 'llm.rate_limited',
+              message: 'Rate limit exceeded (429)',
+              retryable: true,
+            },
+          };
+        }
+        // Subsequent calls succeed with valid findings
+        return {
+          ok: true,
+          value: {
+            content: JSON.stringify({
+              issues: [
+                {
+                  title: 'Transient test issue',
+                  description: 'Found after retry',
+                  severity: 'high',
+                  confidence: 0.9,
+                  file: 'src/UserList.tsx',
+                  line: 1,
+                },
+              ],
+              confidence: 0.9,
+            }),
+            model: 'mock.model' as ModelId,
+            finishReason: 'stop',
+            usage: { promptTokens: 100, completionTokens: 50 },
+          },
+        };
+      },
+    };
+
+    const result = await runReview({
+      diff: DIFF,
+      llm: flakyLlm,
+      selectedSpecialists: ['Security Reviewer'],
+      maxRetries: 3,
+    });
+
+    expect(callCount).toBeGreaterThan(1);
+    expect(result.accepted).toBeGreaterThan(0);
+    expect(result.errors.length).toBe(0);
+  });
+
+  it('fails fast without retry on non-transient validation/auth errors', async () => {
+    let callCount = 0;
+    const authFailLlm: LLMClient = {
+      complete: async () => {
+        callCount++;
+        return {
+          ok: false,
+          error: {
+            category: 'unauthorized',
+            code: 'llm.invalid_api_key',
+            message: 'Invalid API Key (401)',
+            retryable: false,
+          },
+        };
+      },
+    };
+
+    const result = await runReview({
+      diff: DIFF,
+      llm: authFailLlm,
+      selectedSpecialists: ['Security Reviewer'],
+      maxRetries: 3,
+    });
+
+    // Should only be called once because 401/unauthorized is non-retryable
+    expect(callCount).toBe(1);
+    expect(result.errors.some((e) => e.message.includes('Invalid API Key'))).toBe(true);
+  });
 });
+

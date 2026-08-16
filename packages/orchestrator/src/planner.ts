@@ -99,9 +99,8 @@ function isRelevant(
     // General reviewers
     case 'security':
     case 'performance':
-      return hasCodeFiles;
     case 'code':
-      return true; // General code reviewer should always run regardless of whether there's code, it's the baseline.
+      return hasCodeFiles;
       
     default:
       // If we don't know the focus (e.g. custom user skills), default to running it 
