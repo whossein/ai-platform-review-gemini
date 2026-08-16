@@ -54,6 +54,7 @@ export interface LLMRequest {
   readonly messages: readonly LLMMessage[];
   readonly temperature?: number;
   readonly maxTokens?: number;
+  readonly preferredTier?: ModelTier;
   /** Request strict JSON output validated against this JSON schema. */
   readonly jsonSchema?: Readonly<Record<string, unknown>>;
   /** For prompt-cache keying and regression tracking. */
@@ -84,6 +85,7 @@ export interface RoutingContext {
   readonly agentAccuracy?: number;
   /** Preferred model declared by the agent, honored when affordable/capable. */
   readonly preferredModel?: ModelId;
+  readonly preferredTier?: ModelTier;
 }
 
 /**

@@ -20,6 +20,7 @@ import type {
   Issue,
   IssueId,
   ModelId,
+  ModelTier,
   Severity,
   SkillId,
   ToolId,
@@ -107,13 +108,23 @@ export interface SpecialistSpec {
   /** The category the mock provider keys on (`FOCUS:<category>`). */
   readonly focus: string;
   readonly priority: number;
+  readonly preferredTier?: ModelTier;
 }
 
 export const SPECIALISTS: readonly SpecialistSpec[] = [
-  { id: 'agent.react-reviewer', name: 'React Reviewer', goal: 'React correctness & idioms', focus: 'react', priority: 60 }, // prettier-ignore
-  { id: 'agent.security-reviewer', name: 'Security Reviewer', goal: 'Security vulnerabilities', focus: 'security', priority: 90 }, // prettier-ignore
-  { id: 'agent.performance-reviewer', name: 'Performance Reviewer', goal: 'Performance issues', focus: 'performance', priority: 50 }, // prettier-ignore
-  { id: 'agent.code-reviewer', name: 'Code Reviewer', goal: 'General code quality', focus: 'code', priority: 40 }, // prettier-ignore
+  { id: 'agent.react-reviewer', name: 'React Reviewer', goal: 'React correctness & idioms', focus: 'react', priority: 60, preferredTier: 'mid' },
+  { id: 'agent.dotnet-reviewer', name: '.NET Core & C# Reviewer', goal: '.NET idioms & async', focus: 'dotnet, csharp', priority: 60, preferredTier: 'mid' },
+  { id: 'agent.python-reviewer', name: 'Python Reviewer', goal: 'PEP-8 & idioms', focus: 'python', priority: 60, preferredTier: 'mid' },
+  { id: 'agent.android-reviewer', name: 'Android Reviewer', goal: 'Kotlin/Java memory leaks & UI', focus: 'android', priority: 60, preferredTier: 'mid' },
+  { id: 'agent.ios-reviewer', name: 'iOS Reviewer', goal: 'Swift/Obj-C memory & SwiftUI', focus: 'ios', priority: 60, preferredTier: 'mid' },
+  { id: 'agent.nextjs-reviewer', name: 'Next.js Reviewer', goal: 'App/Pages router & SSR', focus: 'nextjs', priority: 60, preferredTier: 'mid' },
+  { id: 'agent.angular-reviewer', name: 'Angular Reviewer', goal: 'RxJS memory leaks & ChangeDetection', focus: 'angular', priority: 60, preferredTier: 'mid' },
+  { id: 'agent.vue-reviewer', name: 'Vue.js Reviewer', goal: 'Composition API & reactivity', focus: 'vuejs', priority: 60, preferredTier: 'mid' },
+  { id: 'agent.typescript-reviewer', name: 'TypeScript Reviewer', goal: 'Type safety & advanced types', focus: 'typescript', priority: 60, preferredTier: 'mid' },
+  { id: 'agent.react-native-reviewer', name: 'React Native Reviewer', goal: 'Bridge performance & UI', focus: 'react-native', priority: 60, preferredTier: 'mid' },
+  { id: 'agent.security-reviewer', name: 'Security Reviewer', goal: 'Security vulnerabilities', focus: 'security', priority: 90, preferredTier: 'premium' },
+  { id: 'agent.performance-reviewer', name: 'Performance Reviewer', goal: 'Performance issues', focus: 'performance', priority: 50, preferredTier: 'mid' },
+  { id: 'agent.code-reviewer', name: 'Code Reviewer', goal: 'General code quality', focus: 'code', priority: 40, preferredTier: 'cheap' },
 ];
 
 export function makeSpecialistDefinition(spec: SpecialistSpec, env?: Record<string, string>): AgentDefinition {
@@ -132,6 +143,7 @@ export function makeSpecialistDefinition(spec: SpecialistSpec, env?: Record<stri
     memoryScope: 'review',
     priority: spec.priority,
     confidenceThreshold: 0.6,
+    ...(spec.preferredTier ? { preferredTier: spec.preferredTier } : {}),
     temperature: 0,
   };
 }

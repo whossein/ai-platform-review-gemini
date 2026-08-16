@@ -47,6 +47,31 @@ function IssueCard({ issue }: { issue: ReviewIssue }): JSX.Element {
   );
 }
 
+function buildEnvOverrides(config: any, language: string) {
+  const envOverrides: Record<string, string> = {
+    AI_REVIEW_LLM_PROVIDER: config.AI_REVIEW_LLM_PROVIDER || 'openai',
+    AI_REVIEW_COMMENT_LANGUAGE: language
+  };
+  if (config.AI_REVIEW_LLM_API_KEY) envOverrides.AI_REVIEW_LLM_API_KEY = config.AI_REVIEW_LLM_API_KEY;
+  if (config.AI_REVIEW_LLM_MODEL) envOverrides.AI_REVIEW_LLM_MODEL = config.AI_REVIEW_LLM_MODEL;
+  if (config.AI_REVIEW_LLM_BASE_URL) envOverrides.AI_REVIEW_LLM_BASE_URL = config.AI_REVIEW_LLM_BASE_URL;
+
+  if (config.AI_PROVIDERS && config.AI_PROVIDERS.length > 0) {
+    envOverrides.AI_PROVIDERS_JSON = JSON.stringify(config.AI_PROVIDERS);
+    for (const p of config.AI_PROVIDERS) {
+      const prefix = p.provider.toUpperCase();
+      if (p.apiKey) envOverrides[`AI_REVIEW_${prefix}_API_KEY`] = p.apiKey;
+      if (p.model) envOverrides[`AI_REVIEW_${prefix}_MODEL`] = p.model;
+      if (p.baseUrl) envOverrides[`AI_REVIEW_${prefix}_BASE_URL`] = p.baseUrl;
+    }
+  }
+
+  if (config.GITLAB_TOKEN) envOverrides.GITLAB_TOKEN = config.GITLAB_TOKEN;
+  if (config.GITLAB_BASE_URL) envOverrides.GITLAB_BASE_URL = config.GITLAB_BASE_URL;
+
+  return envOverrides;
+}
+
 type InputMode = 'diff' | 'pr' | 'zip' | 'path' | 'repo';
 
 export function ReviewView(): JSX.Element {
@@ -60,6 +85,7 @@ export function ReviewView(): JSX.Element {
   const [threshold, setThreshold] = useState<number>(0.6);
   const [result, setResult] = useState<ReviewResponse | null>(null);
   const [estimate, setEstimate] = useState<EstimateResponse | null>(null);
+  const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState<boolean>(false);
   const [estimating, setEstimating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +97,14 @@ export function ReviewView(): JSX.Element {
   const [language, setLanguage] = useState<'en' | 'fa'>('en');
   const [applying, setApplying] = useState<boolean>(false);
   const [applySuccess, setApplySuccess] = useState<boolean>(false);
+
+  // Budget calculations
+  const budgetLimit = config.BUDGET_LIMIT ? parseFloat(config.BUDGET_LIMIT) : null;
+  const currentTotalAgents = selectedAgents.size;
+  const currentEstimatedCost = estimate && estimate.totalAgents > 0 
+    ? (estimate.estimatedCostUsd / estimate.totalAgents) * currentTotalAgents 
+    : 0;
+  const isOverBudget = budgetLimit !== null && currentEstimatedCost > budgetLimit;
 
   useEffect(() => {
     void checkHealth().then(setApiUp);
@@ -130,18 +164,11 @@ export function ReviewView(): JSX.Element {
     }
 
     try {
-      const envOverrides: Record<string, string> = {
-        AI_REVIEW_LLM_PROVIDER: config.AI_REVIEW_LLM_PROVIDER,
-        AI_REVIEW_COMMENT_LANGUAGE: language
-      };
-      if (config.AI_REVIEW_LLM_API_KEY) envOverrides.AI_REVIEW_LLM_API_KEY = config.AI_REVIEW_LLM_API_KEY;
-      if (config.AI_REVIEW_LLM_MODEL) envOverrides.AI_REVIEW_LLM_MODEL = config.AI_REVIEW_LLM_MODEL;
-      if (config.AI_REVIEW_LLM_BASE_URL) envOverrides.AI_REVIEW_LLM_BASE_URL = config.AI_REVIEW_LLM_BASE_URL;
-      if (config.GITLAB_TOKEN) envOverrides.GITLAB_TOKEN = config.GITLAB_TOKEN;
-      if (config.GITLAB_BASE_URL) envOverrides.GITLAB_BASE_URL = config.GITLAB_BASE_URL;
+      const envOverrides = buildEnvOverrides(config, language);
 
       const res = await requestEstimate(diffToEstimate, envOverrides);
       setEstimate(res);
+      setSelectedAgents(new Set(res.agents));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'estimation failed');
     } finally {
@@ -201,17 +228,9 @@ export function ReviewView(): JSX.Element {
     }
 
     try {
-      const envOverrides: Record<string, string> = {
-        AI_REVIEW_LLM_PROVIDER: config.AI_REVIEW_LLM_PROVIDER,
-        AI_REVIEW_COMMENT_LANGUAGE: language
-      };
-      if (config.AI_REVIEW_LLM_API_KEY) envOverrides.AI_REVIEW_LLM_API_KEY = config.AI_REVIEW_LLM_API_KEY;
-      if (config.AI_REVIEW_LLM_MODEL) envOverrides.AI_REVIEW_LLM_MODEL = config.AI_REVIEW_LLM_MODEL;
-      if (config.AI_REVIEW_LLM_BASE_URL) envOverrides.AI_REVIEW_LLM_BASE_URL = config.AI_REVIEW_LLM_BASE_URL;
-      if (config.GITLAB_TOKEN) envOverrides.GITLAB_TOKEN = config.GITLAB_TOKEN;
-      if (config.GITLAB_BASE_URL) envOverrides.GITLAB_BASE_URL = config.GITLAB_BASE_URL;
+      const envOverrides = buildEnvOverrides(config, language);
 
-      const res = await requestReview(diffToReview, threshold, envOverrides);
+      const res = await requestReview(diffToReview, threshold, envOverrides, Array.from(selectedAgents));
       setResult(res);
       
       try {
@@ -224,7 +243,8 @@ export function ReviewView(): JSX.Element {
         else if (mode === 'repo') target = repoUrl;
         else if (mode === 'zip') target = zipFile?.name || 'ZIP File';
         
-        saveReviewToHistory(mode, target, res);
+        const usedModel = config.AI_REVIEW_LLM_MODEL || config.AI_REVIEW_LLM_PROVIDER || 'Unknown Model';
+        saveReviewToHistory(mode, target, usedModel, res);
       } catch (e) {
         console.warn('Failed to save to history', e);
       }
@@ -425,63 +445,131 @@ export function ReviewView(): JSX.Element {
           </div>
           
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button 
-              onClick={() => void onEstimate()} 
-              disabled={
-                estimating || loading || 
-                (inputMode === 'diff' && diff.trim().length === 0) || 
-                inputMode !== 'diff'
-              }
-              className="secondary-button"
-              style={{ minWidth: '130px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text)' }}
-            >
-              {estimating ? 'Calculating…' : 'Estimate Cost'}
-            </button>
-            <button 
-              onClick={() => void onReview()} 
-              disabled={
-                loading || 
-                (inputMode === 'diff' && diff.trim().length === 0) || 
-                (inputMode === 'pr' && prUrl.trim().length === 0) ||
-                (inputMode === 'zip' && !zipFile) ||
-                (inputMode === 'path' && localPath.trim().length === 0) ||
-                (inputMode === 'repo' && repoUrl.trim().length === 0)
-              }
-              style={{ minWidth: '150px' }}
-            >
-              {loading ? 'Reviewing…' : 'Start Code Review'}
-            </button>
+            {!estimate && !result && (
+              <button 
+                onClick={() => void onEstimate()} 
+                disabled={
+                  estimating || loading || 
+                  (inputMode === 'diff' && diff.trim().length === 0) || 
+                  inputMode !== 'diff'
+                }
+                className="secondary-button"
+                style={{ minWidth: '150px', background: 'var(--accent)', color: 'white', border: 'none' }}
+              >
+                {estimating ? 'Analyzing...' : 'Run Pre-Review & Estimate'}
+              </button>
+            )}
+
+            {estimate && !result && (
+              <button 
+                onClick={() => void onEstimate()} 
+                disabled={estimating || loading}
+                className="secondary-button"
+                style={{ minWidth: '130px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text)' }}
+              >
+                {estimating ? 'Recalculating…' : 'Re-Estimate'}
+              </button>
+            )}
+            
+            {(estimate || result) && (
+              <button 
+                onClick={() => void onReview()} 
+                disabled={
+                  loading || 
+                  isOverBudget ||
+                  (inputMode === 'diff' && diff.trim().length === 0) || 
+                  (inputMode === 'pr' && prUrl.trim().length === 0) ||
+                  (inputMode === 'zip' && !zipFile) ||
+                  (inputMode === 'path' && localPath.trim().length === 0) ||
+                  (inputMode === 'repo' && repoUrl.trim().length === 0)
+                }
+                style={{ minWidth: '150px', opacity: isOverBudget ? 0.5 : 1, cursor: isOverBudget ? 'not-allowed' : undefined }}
+                title={isOverBudget ? "Estimated cost exceeds your budget limit" : undefined}
+              >
+                {loading ? 'Reviewing…' : 'Start AI Code Review'}
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {estimate && (
-        <div style={{ background: 'rgba(47, 129, 247, 0.05)', border: '1px solid rgba(47, 129, 247, 0.2)', padding: '1.25rem', borderRadius: '12px', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text)' }}>
-            Review Estimation
-          </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-            <div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Agents Active</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text)' }}>{estimate.totalAgents}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Est. Input Tokens</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text)' }}>{estimate.estimatedTokens.toLocaleString()}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Est. Cost (USD)</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--low)' }}>~${estimate.estimatedCostUsd.toFixed(4)}</div>
-            </div>
-          </div>
-          {estimate.agents.length > 0 && (
-            <div style={{ fontSize: '0.85rem' }}>
-              <span style={{ color: 'var(--muted)' }}>Specialists Routing: </span>
-              {estimate.agents.map((a, i) => (
-                <span key={a} style={{ color: 'var(--accent)', marginRight: '0.5rem' }}>{a}{i < estimate.agents.length - 1 ? ',' : ''}</span>
-              ))}
+      {estimate && !result && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '1.5rem' }}>
+          {estimate.deterministicIssues && estimate.deterministicIssues.length > 0 && (
+            <div style={{ background: 'rgba(255, 171, 0, 0.05)', border: '1px solid rgba(255, 171, 0, 0.3)', padding: '1.25rem', borderRadius: '12px' }}>
+              <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#eab308' }}>
+                Pre-Review Findings (Static Analysis)
+              </h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text)', marginBottom: '1rem' }}>These issues were found instantly without using AI tokens.</p>
+              <ul className="issue-list" style={{ marginTop: 0 }}>
+                {estimate.deterministicIssues.map((issue) => (
+                  <IssueCard key={issue.id} issue={issue} />
+                ))}
+              </ul>
             </div>
           )}
+
+          <div style={{ background: 'rgba(47, 129, 247, 0.05)', border: '1px solid rgba(47, 129, 247, 0.2)', padding: '1.25rem', borderRadius: '12px' }}>
+            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text)' }}>
+              AI Review Estimation
+            </h3>
+            {(() => {
+              const tokensPerAgent = estimate.totalAgents > 0 ? estimate.estimatedTokens / estimate.totalAgents : 0;
+              const currentEstimatedTokens = tokensPerAgent * currentTotalAgents;
+              const allAgents = Array.from(new Set([...estimate.agents, ...estimate.skipped])).sort();
+
+              return (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                    <div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Agents Active</div>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text)' }}>{currentTotalAgents}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Est. Input Tokens</div>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text)' }}>{Math.round(currentEstimatedTokens).toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Est. Cost (USD)</div>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 600, color: isOverBudget ? '#f87171' : 'var(--low)' }}>
+                        ~${currentEstimatedCost.toFixed(4)}
+                        {isOverBudget && <span style={{ fontSize: '0.75rem', marginLeft: '0.5rem', color: '#f87171', fontWeight: 'normal' }}>(Exceeds limit of ${budgetLimit?.toFixed(2)})</span>}
+                      </div>
+                    </div>
+                    {budgetLimit !== null && (
+                      <div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.25rem' }}>Max Budget</div>
+                        <div style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text)' }}>${budgetLimit.toFixed(2)}</div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div style={{ fontSize: '0.85rem', marginTop: '1rem' }}>
+                    <div style={{ color: 'var(--muted)', marginBottom: '0.75rem', fontWeight: 600 }}>Select Specialists for Review:</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.5rem' }}>
+                      {allAgents.map((a) => (
+                        <label key={a} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: selectedAgents.has(a) ? 'var(--text)' : 'var(--muted)' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={selectedAgents.has(a)} 
+                            onChange={() => {
+                              setSelectedAgents(prev => {
+                                const next = new Set(prev);
+                                if (next.has(a)) next.delete(a);
+                                else next.add(a);
+                                return next;
+                              });
+                            }}
+                          />
+                          {a}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
         </div>
       )}
 

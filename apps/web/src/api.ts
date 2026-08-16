@@ -27,6 +27,11 @@ export interface ReviewResponse {
   readonly accepted: number;
   readonly total: number;
   readonly issues: readonly ReviewIssue[];
+  readonly metrics?: {
+    readonly totalPromptTokens: number;
+    readonly totalCompletionTokens: number;
+    readonly totalCostUsd: number;
+  };
 }
 
 export interface EstimateResponse {
@@ -35,6 +40,7 @@ export interface EstimateResponse {
   readonly totalAgents: number;
   readonly estimatedTokens: number;
   readonly estimatedCostUsd: number;
+  readonly deterministicIssues?: readonly ReviewIssue[];
 }
 
 export async function requestEstimate(diff: string, env?: Record<string, string>): Promise<EstimateResponse> {
@@ -50,11 +56,16 @@ export async function requestEstimate(diff: string, env?: Record<string, string>
   return (await res.json()) as EstimateResponse;
 }
 
-export async function requestReview(diff: string, threshold?: number, env?: Record<string, string>): Promise<ReviewResponse> {
+export async function requestReview(diff: string, threshold?: number, env?: Record<string, string>, selectedSpecialists?: readonly string[]): Promise<ReviewResponse> {
   const res = await fetch('/api/review', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ diff, ...(threshold !== undefined ? { threshold } : {}), ...(env ? { env } : {}) }),
+    body: JSON.stringify({ 
+      diff, 
+      ...(threshold !== undefined ? { threshold } : {}), 
+      ...(env ? { env } : {}),
+      ...(selectedSpecialists ? { selectedSpecialists } : {}) 
+    }),
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };

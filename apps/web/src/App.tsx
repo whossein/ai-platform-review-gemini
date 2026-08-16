@@ -4,10 +4,12 @@ import { ReviewView } from './ReviewView.js';
 import { SettingsView } from './SettingsView.js';
 import { SkillsView } from './SkillsView.js';
 import { HistoryView } from './HistoryView.js';
+import { useAppConfig } from './Settings.js';
 
 export function App(): JSX.Element {
   const [activeTab, setActiveTab] = useState('review');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [config] = useAppConfig();
 
   const tabs = [
     { id: 'review', label: 'Code Review', icon: Code },
@@ -32,6 +34,16 @@ export function App(): JSX.Element {
           <h2>AI Review</h2>
           <span className="version">v1.0</span>
         </div>
+
+        {config.BUDGET_LIMIT && (
+          <div style={{ padding: '0 1rem', marginBottom: '1.5rem' }}>
+            <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', padding: '0.75rem', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Max Budget</span>
+              <span style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text)' }}>${parseFloat(config.BUDGET_LIMIT).toFixed(2)}</span>
+            </div>
+          </div>
+        )}
+
         <nav className="sidebar-nav">
           {tabs.map((tab) => {
             const Icon = tab.icon;

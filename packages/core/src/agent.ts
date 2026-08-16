@@ -9,7 +9,7 @@ import type { AgentId, ModelId, SkillId, ToolId } from './ids.js';
 import type { AsyncResult } from './result.js';
 import type { MemoryScope, MemoryHandle } from './memory.js';
 import type { Issue } from './issue.js';
-import type { LLMClient, TokenUsage } from './llm.js';
+import type { LLMClient, ModelTier, TokenUsage } from './llm.js';
 import type { ContextEngine, ContextSlice } from './context.js';
 import type { SkillAccessor } from './skill.js';
 import type { ToolAccessor } from './tool.js';
@@ -35,6 +35,7 @@ export interface AgentDefinition {
   /** Below this confidence, escalation may be triggered (0..1). */
   readonly confidenceThreshold: number;
   readonly preferredModel?: ModelId;
+  readonly preferredTier?: ModelTier;
   readonly temperature: number;
 }
 

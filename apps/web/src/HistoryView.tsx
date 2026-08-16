@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Trash2, Calendar, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, History } from 'lucide-react';
+import { Trash2, Calendar, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, History, Cpu, Zap } from 'lucide-react';
 import { getHistory, clearHistory, deleteHistoryItem } from './history.js';
 import type { HistoryRecord } from './history.js';
 import type { ReviewIssue } from './api.js';
@@ -59,7 +59,7 @@ function HistoryCard({ record, onDelete }: { record: HistoryRecord, onDelete: ()
             {record.target}
           </h3>
           
-          <div style={{ display: 'flex', gap: '1rem', fontSize: '0.9rem', color: 'var(--muted)' }}>
+          <div style={{ display: 'flex', gap: '1rem', fontSize: '0.9rem', color: 'var(--muted)', marginTop: '0.5rem', flexWrap: 'wrap' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
               <AlertTriangle size={14} style={{ color: 'var(--warning)' }} />
               {record.result.total} Issues Found
@@ -68,6 +68,16 @@ function HistoryCard({ record, onDelete }: { record: HistoryRecord, onDelete: ()
               <CheckCircle size={14} style={{ color: 'var(--low)' }} />
               {record.result.accepted} Accepted
             </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              <Cpu size={14} />
+              {record.model || 'Unknown Model'}
+            </span>
+            {record.result.metrics && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <Zap size={14} style={{ color: '#eab308' }} />
+                {(record.result.metrics.totalPromptTokens + record.result.metrics.totalCompletionTokens).toLocaleString()} Tokens
+              </span>
+            )}
           </div>
         </div>
 
@@ -140,29 +150,42 @@ export function HistoryView() {
     setHistory(history.filter(h => h.id !== id));
   }
 
+  const totalTokens = history.reduce((sum, record) => {
+    if (record.result.metrics) {
+      return sum + record.result.metrics.totalPromptTokens + record.result.metrics.totalCompletionTokens;
+    }
+    return sum;
+  }, 0);
+
   return (
     <div className="view-container">
-      <header className="view-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <header className="view-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h2>Review History</h2>
           <p>Past code reviews and analysis results saved locally.</p>
         </div>
         
         {history.length > 0 && (
-          <button 
-            onClick={handleClearAll}
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '0.5rem', 
-              background: 'transparent', 
-              color: 'var(--error)', 
-              border: '1px solid var(--error)' 
-            }}
-          >
-            <Trash2 size={16} />
-            Clear All
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--panel)', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.9rem' }}>
+              <Zap size={16} style={{ color: '#eab308' }} />
+              <span><strong style={{ color: 'var(--text)' }}>{totalTokens.toLocaleString()}</strong> Tokens Used</span>
+            </div>
+            <button 
+              onClick={handleClearAll}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.5rem', 
+                background: 'transparent', 
+                color: 'var(--error)', 
+                border: '1px solid var(--error)' 
+              }}
+            >
+              <Trash2 size={16} />
+              Clear All
+            </button>
+          </div>
         )}
       </header>
 

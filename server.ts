@@ -35,11 +35,33 @@ async function startServer() {
         return;
       }
       
-      const { plan, SPECIALISTS } = await import('@ai-review/orchestrator');
+      const { plan, SPECIALISTS, DefaultRuleEngine, MapRuleRegistry, DEFAULT_RULES, ruleFindingToIssue } = await import('@ai-review/orchestrator');
+      
+      const files = parseDiffToFiles(body.diff);
+      const deterministicIssues = [];
+      
+      if (files.length > 0) {
+        const ruleRegistry = new MapRuleRegistry();
+        for (const rule of DEFAULT_RULES) ruleRegistry.register(rule);
+        const ruleEngine = new DefaultRuleEngine(ruleRegistry);
+        const ruleRes = await ruleEngine.run({
+          repositoryId: 'repo.local',
+          files: files,
+        });
+        
+        if (ruleRes.ok) {
+          for (const finding of ruleRes.value.findings) {
+            deterministicIssues.push(ruleFindingToIssue(finding));
+          }
+        }
+      }
+
+      const coveredCategories = [...new Set(deterministicIssues.map(i => i.category))];
+
       const reviewPlan = plan({
         diff: body.diff,
         specialists: SPECIALISTS,
-        coveredCategories: [],
+        coveredCategories: [], // Static analysis doesn't replace the need for LLM reviewers
       });
 
       const selectedAgents = reviewPlan.selected.map((s: any) => s.name);
@@ -64,12 +86,46 @@ async function startServer() {
         totalAgents: agentCount,
         estimatedTokens: totalInputTokens,
         estimatedCostUsd: Number(estimatedCostUsd.toFixed(5)),
+        deterministicIssues: deterministicIssues
       });
     } catch (err: any) {
       console.error("Estimate error:", err);
       res.status(500).json({ error: err.message || 'internal error' });
     }
   });
+
+function parseDiffToFiles(diffText: string): { path: string, text: string }[] {
+  const files: { path: string, text: string }[] = [];
+  const lines = diffText.split('\n');
+  let currentFile = '';
+  let currentContent: string[] = [];
+
+  for (const line of lines) {
+    if (line.startsWith('+++ ')) {
+      if (currentFile) {
+        files.push({ path: currentFile, text: currentContent.join('\n') });
+      }
+      currentFile = line.substring(4).replace(/^b\//, '').trim();
+      currentContent = [];
+    } else if (line.startsWith('@@ ')) {
+      const match = line.match(/@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+      if (match) {
+        const nextLine = parseInt(match[1], 10);
+        while (currentContent.length + 1 < nextLine) {
+          currentContent.push('');
+        }
+      }
+    } else if (line.startsWith('+') && !line.startsWith('+++')) {
+      currentContent.push(line.substring(1));
+    } else if (line.startsWith(' ')) {
+      currentContent.push(line.substring(1));
+    }
+  }
+  if (currentFile) {
+    files.push({ path: currentFile, text: currentContent.join('\n') });
+  }
+  return files;
+}
 
   app.post("/api/review", async (req, res) => {
     try {
@@ -80,11 +136,15 @@ async function startServer() {
       }
       
       const mergedEnv = { ...process.env, ...(body.env || {}) };
+      
+      const parsedFiles = parseDiffToFiles(body.diff);
 
       const result = await runReview({
         diff: body.diff,
+        files: parsedFiles,
         ...(body.threshold !== undefined ? { confidenceThreshold: body.threshold } : {}),
         env: mergedEnv,
+        ...(Array.isArray(body.selectedSpecialists) ? { selectedSpecialists: body.selectedSpecialists } : {}),
       });
       
       res.status(200).json({

@@ -47,6 +47,16 @@ export class CheapestFirstRouter implements ModelRouter {
     const preferred = capable.find((m) => m.id === ctx.preferredModel);
     if (preferred) return { ok: true, value: preferred };
 
+    if (ctx.preferredTier) {
+      const ofTier = capable.filter(m => m.tier === ctx.preferredTier);
+      if (ofTier.length > 0) {
+        const cheapestOfTier = [...ofTier].sort(
+          (a, b) => a.inputCostPer1M + a.outputCostPer1M - (b.inputCostPer1M + b.outputCostPer1M),
+        )[0]!;
+        return { ok: true, value: cheapestOfTier };
+      }
+    }
+
     // Otherwise cheapest by combined per-1M cost (local/mock = 0 wins).
     const cheapest = [...capable].sort(
       (a, b) => a.inputCostPer1M + a.outputCostPer1M - (b.inputCostPer1M + b.outputCostPer1M),
@@ -76,6 +86,7 @@ export class RoutingLLMClient implements LLMClient {
       const selected = await this.router.select({
         ...this.defaultContext,
         ...(request.model ? { preferredModel: request.model } : {}),
+        ...(request.preferredTier ? { preferredTier: request.preferredTier } : {}),
       });
       if (!selected.ok) return selected;
       modelId = selected.value.id;

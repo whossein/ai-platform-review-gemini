@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
+  "name": "AI Code Reviewer",
+  "description": "Multi-Agent AI Code Review Platform with deterministic rule scanning, specialist AI reviewers, and cost/tier orchestration.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

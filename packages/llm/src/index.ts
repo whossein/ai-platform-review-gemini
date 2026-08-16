@@ -15,6 +15,7 @@ export { MockLLMProvider } from './mock-provider.js';
 export {
   OpenAICompatibleProvider,
   providerFromEnv,
+  providersFromEnv,
   type OpenAICompatibleOptions,
   type OpenAICompatibleModel,
 } from './openai-provider.js';

@@ -1,12 +1,23 @@
 import { useState, useEffect } from 'react';
 
+export interface AIProviderConfig {
+  id: string;
+  provider: string;
+  apiKey: string;
+  model: string;
+  baseUrl: string;
+  tier?: 'cheap' | 'mid' | 'premium' | 'local' | string;
+}
+
 export interface AppConfig {
   AI_REVIEW_LLM_PROVIDER: string;
   AI_REVIEW_LLM_API_KEY: string;
   AI_REVIEW_LLM_MODEL: string;
   AI_REVIEW_LLM_BASE_URL: string;
+  AI_PROVIDERS?: AIProviderConfig[];
   GITLAB_TOKEN: string;
   GITLAB_BASE_URL: string;
+  BUDGET_LIMIT: string;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -16,6 +27,7 @@ const DEFAULT_CONFIG: AppConfig = {
   AI_REVIEW_LLM_BASE_URL: '',
   GITLAB_TOKEN: '',
   GITLAB_BASE_URL: '',
+  BUDGET_LIMIT: '0.5',
 };
 
 export function useAppConfig() {
@@ -97,6 +109,17 @@ export function SettingsModal({
             value={local.AI_REVIEW_LLM_BASE_URL}
             onChange={(e) => setLocal({ ...local, AI_REVIEW_LLM_BASE_URL: e.target.value })}
             placeholder="Custom gateway URL"
+          />
+        </div>
+        <div className="form-group">
+          <label>Max Budget (USD)</label>
+          <input
+            type="number"
+            step="0.001"
+            min="0"
+            value={local.BUDGET_LIMIT}
+            onChange={(e) => setLocal({ ...local, BUDGET_LIMIT: e.target.value })}
+            placeholder="0.5 (Leave empty for no limit)"
           />
         </div>
         <div className="modal-actions">

@@ -22,6 +22,87 @@ const DEFAULT_SKILLS: CustomSkill[] = [
     targets: ['react', 'next.js', 'tsx', 'jsx']
   },
   {
+    id: 'agent.dotnet-reviewer',
+    name: '.NET Core & C# Reviewer',
+    focus: 'dotnet, csharp',
+    description: 'Reviews C# and .NET Core code for idioms, LINQ usage, memory management, and async best practices.',
+    instructions: 'You are the .NET Core and C# Reviewer. FOCUS:dotnet,csharp. Evaluate usage of async/await, Task, dependency injection, IDisposable, LINQ performance, and C# naming conventions.',
+    type: 'framework',
+    targets: ['cs', 'csproj', 'dotnet', 'c#']
+  },
+  {
+    id: 'agent.python-reviewer',
+    name: 'Python Reviewer',
+    focus: 'python',
+    description: 'Reviews Python code for PEP-8 compliance, idiomatic constructs, type hints, and performance.',
+    instructions: 'You are the Python Reviewer. FOCUS:python. Check for PEP-8 violations, idiomatic Python (list comprehensions, generators), proper use of type hints, and efficient data structures.',
+    type: 'language',
+    targets: ['py', 'python']
+  },
+  {
+    id: 'agent.android-reviewer',
+    name: 'Android Reviewer (Kotlin/Java)',
+    focus: 'android',
+    description: 'Reviews Android code for memory leaks, UI performance, Coroutines/RxJava usage, and SDK best practices.',
+    instructions: 'You are the Android Reviewer. FOCUS:android. Review Kotlin and Java code targeting Android. Check for Context leaks, main thread blocking, inefficient View/Compose rendering, and Coroutine scope mismanagement.',
+    type: 'framework',
+    targets: ['kt', 'java', 'xml', 'android']
+  },
+  {
+    id: 'agent.ios-reviewer',
+    name: 'iOS Reviewer (Swift/Obj-C)',
+    focus: 'ios',
+    description: 'Reviews iOS code for retain cycles, memory management, SwiftUI/UIKit performance, and Swift idioms.',
+    instructions: 'You are the iOS Reviewer. FOCUS:ios. Review Swift and Objective-C code. Check for retain cycles (weak self), main thread UI updates, SwiftUI view performance, and idiomatic Swift usage.',
+    type: 'framework',
+    targets: ['swift', 'm', 'h', 'ios']
+  },
+  {
+    id: 'agent.nextjs-reviewer',
+    name: 'Next.js Reviewer',
+    focus: 'nextjs',
+    description: 'Reviews Next.js applications for App/Pages router patterns, SSR/SSG usage, and hydration issues.',
+    instructions: 'You are the Next.js Reviewer. FOCUS:nextjs. Check for correct usage of server vs client components, data fetching methods, routing best practices, and image optimization.',
+    type: 'framework',
+    targets: ['next.js', 'react', 'tsx', 'jsx']
+  },
+  {
+    id: 'agent.angular-reviewer',
+    name: 'Angular Reviewer',
+    focus: 'angular',
+    description: 'Reviews Angular code for RxJS memory leaks, ChangeDetection, and component architecture.',
+    instructions: 'You are the Angular Reviewer. FOCUS:angular. Review Angular components and services. Check for RxJS subscription leaks (takeUntil, async pipe), ChangeDetectionStrategy.OnPush usage, and DI module boundaries.',
+    type: 'framework',
+    targets: ['angular', 'ts', 'html']
+  },
+  {
+    id: 'agent.vue-reviewer',
+    name: 'Vue.js Reviewer',
+    focus: 'vuejs',
+    description: 'Reviews Vue components for Composition/Options API usage, reactivity patterns, and lifecycle hooks.',
+    instructions: 'You are the Vue Reviewer. FOCUS:vuejs. Review Vue 2/3 code. Check for proper use of ref/reactive, unsubscription in lifecycle hooks, computed properties performance, and template semantics.',
+    type: 'framework',
+    targets: ['vue', 'js', 'ts']
+  },
+  {
+    id: 'agent.typescript-reviewer',
+    name: 'TypeScript Reviewer',
+    focus: 'typescript',
+    description: 'Reviews TypeScript code for type safety, avoiding any, and advanced generic usages.',
+    instructions: 'You are the TypeScript Reviewer. FOCUS:typescript. Check for strict type safety. Avoid \'any\' types, prefer \'unknown\', ensure proper use of union/intersection types, generics, and strict null checks.',
+    type: 'language',
+    targets: ['ts', 'tsx']
+  },
+  {
+    id: 'agent.react-native-reviewer',
+    name: 'React Native Reviewer',
+    focus: 'react-native',
+    description: 'Reviews React Native code for bridge crossing performance, mobile-specific UI, and animations.',
+    instructions: 'You are the React Native Reviewer. FOCUS:react-native. Check for excessive bridge crossings, proper use of FlatList/FlashList, Reanimated worklets, and mobile gesture handling.',
+    type: 'framework',
+    targets: ['react-native', 'tsx', 'jsx']
+  },
+  {
     id: 'agent.security-reviewer',
     name: 'Security Reviewer',
     focus: 'security',
@@ -123,7 +204,12 @@ export function SkillsView() {
   const [skills, setSkills] = useState<CustomSkill[]>(() => {
     try {
       const saved = localStorage.getItem('ai-review-skills-v3');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Merge missing default skills so the user gets newly added framework skills
+        const missing = DEFAULT_SKILLS.filter(ds => !parsed.find((p: CustomSkill) => p.id === ds.id));
+        return [...parsed, ...missing];
+      }
     } catch (e) {
       // ignore
     }
@@ -190,6 +276,7 @@ export function SkillsView() {
     return (
       <SkillEditor 
         initial={editingSkill} 
+        allSkills={skills}
         onSave={handleSave} 
         onCancel={() => {
           setEditingSkill(null);
@@ -293,9 +380,22 @@ export function SkillsView() {
   );
 }
 
-function SkillEditor({ initial, onSave, onCancel }: { initial: CustomSkill | null, onSave: (s: CustomSkill) => void, onCancel: () => void }) {
+function SkillEditor({ initial, allSkills, onSave, onCancel }: { initial: CustomSkill | null, allSkills?: CustomSkill[], onSave: (s: CustomSkill) => void, onCancel: () => void }) {
   const [skill, setSkill] = useState<CustomSkill>(initial || { id: '', name: '', focus: '', description: '', instructions: '', type: 'framework', targets: [] });
   const [targetInput, setTargetInput] = useState((initial?.targets || []).join(', '));
+
+  const handleImport = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const importId = e.target.value;
+    if (!importId || !allSkills) return;
+    const source = allSkills.find(s => s.id === importId);
+    if (source) {
+      setSkill({
+        ...source,
+        id: skill.id // keep current id, whether it's empty or existing
+      });
+      setTargetInput((source.targets || []).join(', '));
+    }
+  };
 
   return (
     <div className="skill-editor" style={{ maxWidth: '800px' }}>
@@ -309,6 +409,21 @@ function SkillEditor({ initial, onSave, onCancel }: { initial: CustomSkill | nul
 
       <div style={{ background: 'var(--panel)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
         
+        {!initial?.id && allSkills && allSkills.length > 0 && (
+          <div className="form-group" style={{ marginBottom: '1.5rem', paddingBottom: '1.5rem', borderBottom: '1px solid var(--border)' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              Import from existing skill
+              <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: 'var(--muted)' }}>(Optional: Use an existing skill as a template)</span>
+            </label>
+            <select onChange={handleImport} defaultValue="">
+              <option value="" disabled>Select a skill to copy...</option>
+              {allSkills.map(s => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
           <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
             <label>Skill Name</label>

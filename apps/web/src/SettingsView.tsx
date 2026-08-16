@@ -1,15 +1,60 @@
 import { useState } from 'react';
+import { Plus, Trash2, Star } from 'lucide-react';
 import { useAppConfig } from './Settings.js';
+import type { AIProviderConfig } from './Settings.js';
 
 export function SettingsView() {
   const [config, setConfig] = useAppConfig();
   const [local, setLocal] = useState(config);
   const [saved, setSaved] = useState(false);
+  
+  const [newProvider, setNewProvider] = useState<AIProviderConfig>({
+    id: '',
+    provider: 'openai',
+    apiKey: '',
+    model: '',
+    baseUrl: '',
+    tier: 'mid',
+  });
 
   const handleSave = () => {
     setConfig(local);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleAddProvider = () => {
+    const id = Date.now().toString();
+    const p = { ...newProvider, id };
+    const providers = local.AI_PROVIDERS ? [...local.AI_PROVIDERS] : [];
+    
+    // Auto-set as default if it's the first one
+    if (providers.length === 0 || !local.AI_REVIEW_LLM_PROVIDER || local.AI_REVIEW_LLM_PROVIDER === 'mock') {
+      setLocal({
+        ...local,
+        AI_PROVIDERS: [...providers, p],
+        AI_REVIEW_LLM_PROVIDER: p.id,
+      });
+    } else {
+      setLocal({
+        ...local,
+        AI_PROVIDERS: [...providers, p],
+      });
+    }
+    
+    setNewProvider({ id: '', provider: 'openai', apiKey: '', model: '', baseUrl: '', tier: 'mid' });
+  };
+
+  const handleDeleteProvider = (id: string) => {
+    const providers = (local.AI_PROVIDERS || []).filter(p => p.id !== id);
+    setLocal({
+      ...local,
+      AI_PROVIDERS: providers,
+    });
+  };
+
+  const handleSetDefaultProvider = (providerId: string) => {
+    setLocal({ ...local, AI_REVIEW_LLM_PROVIDER: providerId });
   };
 
   return (
@@ -36,7 +81,7 @@ export function SettingsView() {
               onChange={(e) => {
                 setLocal({
                   ...local,
-                  AI_REVIEW_LLM_PROVIDER: e.target.checked ? 'mock' : 'gemini'
+                  AI_REVIEW_LLM_PROVIDER: e.target.checked ? 'mock' : (local.AI_PROVIDERS?.[0]?.provider || 'gemini')
                 });
               }}
               style={{ opacity: 0, width: 0, height: 0 }}
@@ -57,47 +102,121 @@ export function SettingsView() {
       </div>
 
       <div className="settings-card" style={{ background: 'var(--panel)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border)', opacity: local.AI_REVIEW_LLM_PROVIDER === 'mock' ? 0.5 : 1, pointerEvents: local.AI_REVIEW_LLM_PROVIDER === 'mock' ? 'none' : 'auto', marginBottom: '1.5rem' }}>
-        <div className="form-group">
-          <label>LLM Provider</label>
-          <select
-            value={local.AI_REVIEW_LLM_PROVIDER}
-            onChange={(e) => setLocal({ ...local, AI_REVIEW_LLM_PROVIDER: e.target.value })}
+        <h2 style={{ fontSize: '1.1rem', marginTop: 0, marginBottom: '1rem', color: 'var(--text)' }}>AI Providers</h2>
+        
+        {/* New Provider Form */}
+        <div style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid var(--border)', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
+          <h3 style={{ fontSize: '0.95rem', margin: '0 0 1rem 0' }}>Add New Provider</h3>
+          <div className="form-group">
+            <label>Provider</label>
+            <select
+              value={newProvider.provider}
+              onChange={(e) => setNewProvider({ ...newProvider, provider: e.target.value })}
+            >
+              <option value="gemini">Gemini</option>
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="ollama">Ollama (Local / Free)</option>
+              <option value="deepseek">DeepSeek</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>API Key</label>
+            <input
+              type="password"
+              value={newProvider.apiKey}
+              onChange={(e) => setNewProvider({ ...newProvider, apiKey: e.target.value })}
+              placeholder={newProvider.provider === 'ollama' ? "Not required for this provider" : "API Key (Defaults to env if empty)"}
+              disabled={newProvider.provider === 'ollama'}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+            <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+              <label>Model (Optional)</label>
+              <input
+                type="text"
+                value={newProvider.model}
+                onChange={(e) => setNewProvider({ ...newProvider, model: e.target.value })}
+                placeholder="Leave empty for default"
+              />
+            </div>
+            <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+              <label>Tier / Cost (Optional)</label>
+              <select
+                value={newProvider.tier || 'mid'}
+                onChange={(e) => setNewProvider({ ...newProvider, tier: e.target.value })}
+              >
+                <option value="cheap">Cheap (Low Cost)</option>
+                <option value="mid">Medium (Balanced)</option>
+                <option value="premium">Expensive / Premium (High Quality)</option>
+                <option value="local">Local (Free / Offline)</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-group" style={{ marginTop: '1rem', marginBottom: 0 }}>
+            <label>Base URL (Optional)</label>
+            <input
+              type="text"
+              value={newProvider.baseUrl}
+              onChange={(e) => setNewProvider({ ...newProvider, baseUrl: e.target.value })}
+              placeholder="Custom gateway URL"
+            />
+          </div>
+          <button 
+            onClick={handleAddProvider} 
+            style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--panel)', color: 'var(--text)', border: '1px solid var(--border)' }}
           >
-            <option value="gemini">Gemini</option>
-            <option value="openai">OpenAI</option>
-            <option value="anthropic">Anthropic</option>
-            <option value="openrouter">OpenRouter</option>
-            <option value="ollama">Ollama (Local / Free)</option>
-            <option value="deepseek">DeepSeek</option>
-          </select>
+            <Plus size={16} /> Add Provider
+          </button>
         </div>
-        <div className="form-group">
-          <label>API Key</label>
-          <input
-            type="password"
-            value={local.AI_REVIEW_LLM_API_KEY}
-            onChange={(e) => setLocal({ ...local, AI_REVIEW_LLM_API_KEY: e.target.value })}
-            placeholder={local.AI_REVIEW_LLM_PROVIDER === 'ollama' ? "Not required for this provider" : "Defaults to server env if empty"}
-            disabled={local.AI_REVIEW_LLM_PROVIDER === 'ollama'}
-          />
-        </div>
-        <div className="form-group">
-          <label>Model (Optional)</label>
-          <input
-            type="text"
-            value={local.AI_REVIEW_LLM_MODEL}
-            onChange={(e) => setLocal({ ...local, AI_REVIEW_LLM_MODEL: e.target.value })}
-            placeholder="Leave empty for default"
-          />
-        </div>
-        <div className="form-group">
-          <label>Base URL (Optional)</label>
-          <input
-            type="text"
-            value={local.AI_REVIEW_LLM_BASE_URL}
-            onChange={(e) => setLocal({ ...local, AI_REVIEW_LLM_BASE_URL: e.target.value })}
-            placeholder="Custom gateway URL"
-          />
+
+        {/* List of saved providers */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {(local.AI_PROVIDERS || []).map((p) => {
+            const isDefault = local.AI_REVIEW_LLM_PROVIDER === p.id;
+            return (
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', border: isDefault ? '2px solid var(--accent)' : '1px solid var(--border)', borderRadius: '8px', background: 'var(--panel)' }}>
+                <div>
+                  <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <span style={{ textTransform: 'capitalize' }}>{p.provider}</span>
+                    {p.tier && (
+                      <span style={{ fontSize: '0.7rem', background: 'var(--border)', color: 'var(--text)', padding: '0.1rem 0.4rem', borderRadius: '4px', textTransform: 'capitalize' }}>
+                        Tier: {p.tier}
+                      </span>
+                    )}
+                    {isDefault && <span style={{ fontSize: '0.7rem', background: 'var(--accent)', color: '#fff', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>Active</span>}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
+                    {p.model && <span>Model: {p.model} &bull; </span>}
+                    {p.apiKey ? 'Key configured' : 'Using default/env key'}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {!isDefault && (
+                    <button 
+                      onClick={() => handleSetDefaultProvider(p.id)}
+                      title="Set as active provider"
+                      style={{ padding: '0.4rem', background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}
+                    >
+                      <Star size={18} />
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => handleDeleteProvider(p.id)}
+                    style={{ padding: '0.4rem', background: 'transparent', border: 'none', color: 'var(--error)', cursor: 'pointer' }}
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          {(!local.AI_PROVIDERS || local.AI_PROVIDERS.length === 0) && (
+            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--muted)', border: '1px dashed var(--border)', borderRadius: '8px' }}>
+              No AI providers configured. Add one above.
+            </div>
+          )}
         </div>
       </div>
 
@@ -114,7 +233,6 @@ export function SettingsView() {
             placeholder="e.g. https://gitlab.com (Usually auto-detected from MR URL)"
           />
         </div>
-
         <div className="form-group">
           <label>Personal Access Token</label>
           <input
@@ -122,6 +240,21 @@ export function SettingsView() {
             value={local.GITLAB_TOKEN}
             onChange={(e) => setLocal({ ...local, GITLAB_TOKEN: e.target.value })}
             placeholder="glpat-... (Defaults to server env if empty)"
+          />
+        </div>
+      </div>
+
+      <div className="settings-card" style={{ background: 'var(--panel)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border)', marginBottom: '1.5rem' }}>
+        <h2 style={{ fontSize: '1.1rem', marginTop: 0, marginBottom: '1rem', color: 'var(--text)' }}>Budget & Limits</h2>
+        <div className="form-group">
+          <label>Max Budget per Request (USD)</label>
+          <input
+            type="number"
+            step="0.001"
+            min="0"
+            value={local.BUDGET_LIMIT}
+            onChange={(e) => setLocal({ ...local, BUDGET_LIMIT: e.target.value })}
+            placeholder="e.g. 0.5 (Leave empty for no limit)"
           />
         </div>
       </div>

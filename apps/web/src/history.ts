@@ -7,6 +7,7 @@ export interface HistoryRecord {
   timestamp: number;
   inputMode: InputModeType;
   target: string; // The URL or path or 'Custom Diff'
+  model: string;
   result: ReviewResponse;
 }
 
@@ -16,6 +17,7 @@ const MAX_HISTORY = 50;
 export function saveReviewToHistory(
   inputMode: InputModeType,
   target: string,
+  model: string,
   result: ReviewResponse
 ): void {
   try {
@@ -25,6 +27,7 @@ export function saveReviewToHistory(
       timestamp: Date.now(),
       inputMode,
       target,
+      model,
       result,
     };
     
@@ -48,6 +51,7 @@ export function saveReviewToHistory(
           timestamp: Date.now(),
           inputMode,
           target,
+          model,
           result,
         });
         localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));

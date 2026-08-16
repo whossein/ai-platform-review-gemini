@@ -36,7 +36,7 @@ import {
 } from '@ai-review/config';
 import {
   MockLLMProvider,
-  providerFromEnv,
+  providersFromEnv,
   CheapestFirstRouter,
   RoutingLLMClient,
   CachingLLMClient,
@@ -135,6 +135,8 @@ export interface RunOptions {
   readonly llm?: LLMClient;
   /** Optional env overrides for the LLM provider. */
   readonly env?: Record<string, string>;
+  /** Optional explicit list of specialist names to run. If provided, overrides the planner. */
+  readonly selectedSpecialists?: readonly string[];
 }
 
 export async function runReview(opts: RunOptions): Promise<ReviewResult> {
@@ -150,11 +152,11 @@ export async function runReview(opts: RunOptions): Promise<ReviewResult> {
   // (AI_REVIEW_LLM_* — works with OpenAI, OpenRouter, Ollama, DeepSeek, Azure),
   // otherwise fall back to the zero-cost offline mock so the pipeline always
   // runs. Either way the router/escalation/agents are identical.
-  const realProvider = providerFromEnv(opts.env ?? process.env);
-  const providers = realProvider ? [realProvider] : [new MockLLMProvider()];
+  const realProviders = providersFromEnv(opts.env ?? process.env);
+  const providers = realProviders.length > 0 ? realProviders : [new MockLLMProvider()];
   const router = new CheapestFirstRouter(providers);
   const routing: LLMClient = new RoutingLLMClient(providers, router, {
-    requiredCapabilities: realProvider ? ['text'] : ['text', 'json_mode'],
+    requiredCapabilities: realProviders.length > 0 ? ['text'] : ['text', 'json_mode'],
     budget,
   });
   // LLM RESPONSE CACHE (ADR-0007, the #1 token/$ lever): memoize identical
@@ -260,7 +262,12 @@ export async function runReview(opts: RunOptions): Promise<ReviewResult> {
     specialists: SPECIALISTS,
     coveredCategories,
   });
-  for (const spec of reviewPlan.selected) {
+  
+  const specsToRun = opts.selectedSpecialists
+    ? SPECIALISTS.filter(s => opts.selectedSpecialists?.includes(s.name))
+    : reviewPlan.selected;
+
+  for (const spec of specsToRun) {
     registry.register({
       definition: makeSpecialistDefinition(spec, opts.env),
       handler: makeSpecialistHandler(spec, opts.env),
@@ -272,7 +279,17 @@ export async function runReview(opts: RunOptions): Promise<ReviewResult> {
   const definitions = registry.list();
 
   const results = await Promise.allSettled(
-    definitions.map((def) => runtime.execute(def.id as AgentId, baseCtx)),
+    definitions.map((def) => {
+      const agentLlm: LLMClient = {
+        complete: (req) =>
+          baseCtx.llm.complete({
+            ...req,
+            ...(def.preferredModel && !req.model ? { model: def.preferredModel } : {}),
+            ...(def.preferredTier && !req.preferredTier ? { preferredTier: def.preferredTier } : {}),
+          }),
+      };
+      return runtime.execute(def.id as AgentId, { ...baseCtx, llm: agentLlm });
+    }),
   );
 
   // Deterministic findings lead the pool — they are free and trustworthy.

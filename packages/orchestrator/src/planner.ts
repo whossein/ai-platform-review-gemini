@@ -66,21 +66,47 @@ function isRelevant(
   focus: string,
   ctx: { readonly files: readonly string[]; readonly added: string; readonly exts: Set<string> },
 ): boolean {
-  const hasTs = ['.ts', '.tsx'].some((e) => ctx.exts.has(e));
-  const hasJsx = ['.tsx', '.jsx'].some((e) => ctx.exts.has(e));
+  // If there are no files (e.g., empty diff or parsing failed), we might want to default to running general reviewers just in case.
+  const hasCodeFiles = ctx.exts.size === 0 || [...ctx.exts].some(ext => 
+    ['.ts', '.tsx', '.js', '.jsx', '.cs', '.py', '.java', '.kt', '.swift', '.m', '.h', '.vue', '.html'].includes(ext)
+  );
+
   switch (focus) {
     case 'react':
-      // React reviewer only makes sense with JSX/TSX or explicit hook/component usage.
-      return hasJsx || /\buse[A-Z]\w*\(|<[A-Z][A-Za-z0-9]*/.test(ctx.added);
+      return ['.tsx', '.jsx'].some((e) => ctx.exts.has(e)) || /\buse[A-Z]\w*\(|<[A-Z][A-Za-z0-9]*/.test(ctx.added);
+    case 'dotnet':
+    case 'dotnet, csharp':
+    case 'csharp':
+      return ['.cs', '.csproj'].some((e) => ctx.exts.has(e)) || /\busing\s+System\b|\bnamespace\b/.test(ctx.added);
+    case 'python':
+      return ['.py', '.ipynb'].some((e) => ctx.exts.has(e)) || (!['.kt', '.java', '.xml', '.swift', '.m', '.h', '.ts', '.tsx', '.js', '.jsx'].some((e) => ctx.exts.has(e)) && /\bimport\s+[a-zA-Z_]\w*\b|\bdef\s+[a-zA-Z_]\w*\s*\(/.test(ctx.added));
+    case 'android':
+      return ['.kt', '.java', '.xml'].some((e) => ctx.exts.has(e)) || /\bimport\s+android\b|\bimport\s+androidx\b/.test(ctx.added);
+    case 'ios':
+      return ['.swift', '.m', '.h'].some((e) => ctx.exts.has(e)) || /\bimport\s+UIKit\b|\bimport\s+SwiftUI\b|\bimport\s+Foundation\b/.test(ctx.added);
+    case 'nextjs':
+      // Very broad since it's React based, but look for next specific things or just run if TSX/JSX
+      return ['.tsx', '.jsx'].some((e) => ctx.exts.has(e)) && (/\bnext\/|\bapp\/|\bpages\//.test(ctx.added) || ctx.files.some(f => f.includes('/app/') || f.includes('/pages/')));
+    case 'angular':
+      return ['.ts', '.html'].some((e) => ctx.exts.has(e)) && /\b@Component\b|\b@Injectable\b|\b@NgModule\b/.test(ctx.added);
+    case 'vuejs':
+      return ['.vue'].some((e) => ctx.exts.has(e)) || /\bdefineComponent\b|\bref\(|\breactive\(/.test(ctx.added);
+    case 'typescript':
+      return ['.ts', '.tsx'].some((e) => ctx.exts.has(e));
+    case 'react-native':
+      return ['.tsx', '.jsx', '.js', '.ts'].some((e) => ctx.exts.has(e)) && /\breact-native\b/.test(ctx.added);
+    
+    // General reviewers
     case 'security':
-      // Security is code-shaped; skip only for pure non-code assets.
-      return hasTs || ctx.exts.has('.js') || ctx.exts.has('.jsx') || ctx.files.length === 0;
     case 'performance':
-      return hasTs || ctx.exts.has('.js') || ctx.exts.has('.jsx');
+      return hasCodeFiles;
     case 'code':
-      // General code quality runs whenever there is any code at all.
-      return hasTs || ctx.exts.has('.js') || ctx.exts.has('.jsx');
+      return true; // General code reviewer should always run regardless of whether there's code, it's the baseline.
+      
     default:
+      // If we don't know the focus (e.g. custom user skills), default to running it 
+      // or we could check if they have targets configured, but the planner currently just sees 'focus' string.
+      // We will default to true so we don't accidentally skip a custom skill.
       return true;
   }
 }

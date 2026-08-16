@@ -91,6 +91,72 @@ export const noConsoleRule: Rule = {
   },
 };
 
+/** Flags debugger statements. */
+export const noDebuggerRule: Rule = {
+  kind: 'eslint',
+  id: 'no-debugger',
+  async run(ctx) {
+    return {
+      ok: true,
+      value: scanLines(
+        ctx,
+        (line) => (/\bdebugger\s*;?/.test(line) ? 'debugger statement' : undefined),
+        (file, line) => ({
+          ruleKind: 'eslint',
+          ruleId: 'no-debugger',
+          message: 'Unexpected `debugger` statement found.',
+          location: { file, line },
+          severity: 'high',
+        }),
+      ),
+    };
+  },
+};
+
+/** Flags eval() usage. */
+export const noEvalRule: Rule = {
+  kind: 'eslint',
+  id: 'no-eval',
+  async run(ctx) {
+    return {
+      ok: true,
+      value: scanLines(
+        ctx,
+        (line) => (/\beval\s*\(/.test(line) ? 'eval function' : undefined),
+        (file, line) => ({
+          ruleKind: 'eslint',
+          ruleId: 'no-eval',
+          message: 'Avoid using `eval()`. It is a major security risk and hurts performance.',
+          location: { file, line },
+          severity: 'critical',
+        }),
+      ),
+    };
+  },
+};
+
+/** Flags skipped or exclusive tests (.only / .skip). */
+export const noExclusiveTestsRule: Rule = {
+  kind: 'eslint',
+  id: 'no-exclusive-tests',
+  async run(ctx) {
+    return {
+      ok: true,
+      value: scanLines(
+        ctx,
+        (line) => (/\b(describe|it|test)\.(only|skip)\b/.test(line) ? 'exclusive test' : undefined),
+        (file, line) => ({
+          ruleKind: 'eslint',
+          ruleId: 'no-exclusive-tests',
+          message: 'Exclusive or skipped test found (e.g. `.only` or `.skip`). Ensure this is intentional before merging.',
+          location: { file, line },
+          severity: 'medium',
+        }),
+      ),
+    };
+  },
+};
+
 /** Flags use of the `any` type in TypeScript. */
 export const noExplicitAnyRule: Rule = {
   kind: 'typescript',
@@ -139,6 +205,9 @@ export const noTodoRule: Rule = {
 export const DEFAULT_RULES: readonly Rule[] = [
   secretDetectionRule,
   noConsoleRule,
+  noDebuggerRule,
+  noEvalRule,
+  noExclusiveTestsRule,
   noExplicitAnyRule,
   noTodoRule,
 ];

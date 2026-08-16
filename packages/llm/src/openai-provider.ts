@@ -271,3 +271,35 @@ export function providerFromEnv(
     models: [{ id: model, tier: preset.defaultTier }],
   });
 }
+
+export function providersFromEnv(
+  env: Record<string, string | undefined> = process.env,
+): OpenAICompatibleProvider[] {
+  if (env['AI_PROVIDERS_JSON']) {
+    try {
+      const providersData = JSON.parse(env['AI_PROVIDERS_JSON']);
+      const providers: OpenAICompatibleProvider[] = [];
+      for (const data of providersData) {
+        const preset = resolveProviderPreset(data.provider) ?? resolveProviderPreset('openai')!;
+        const baseUrl = data.baseUrl || preset.defaultBaseUrl;
+        if (!baseUrl) continue;
+        const tier = (data.tier || preset.defaultTier) as ModelTier;
+        providers.push(
+          new OpenAICompatibleProvider({
+            providerId: data.id ? `provider.${data.provider}-${data.id}` : preset.providerId,
+            baseUrl,
+            ...(data.apiKey ? { apiKey: data.apiKey } : {}),
+            models: [{ id: data.model || preset.defaultModel, tier }],
+          }),
+        );
+      }
+      if (providers.length > 0) return providers;
+    } catch (e) {
+      console.error('Failed to parse AI_PROVIDERS_JSON', e);
+    }
+  }
+
+  // Fallback to legacy single provider if no JSON array
+  const single = providerFromEnv(env);
+  return single ? [single] : [];
+}
