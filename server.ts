@@ -458,15 +458,17 @@ function parseDiffToFiles(diffText: string): { path: string, text: string }[] {
       const registry = new MapGitProviderRegistry();
       const http = new FetchHttpClient();
       
+      let gitProvider;
       if (ref.provider === 'gitlab') {
         const baseUrl = mergedEnv.GITLAB_BASE_URL || baseUrlFromChangeRequestUrl(diff) || 'https://gitlab.com';
-        registry.register(new GitLabProvider(http, { baseUrl, token }));
+        gitProvider = new GitLabProvider(http, { baseUrl, token });
+        registry.register(gitProvider);
       } else {
         res.status(400).json({ error: `Provider ${ref.provider} is not currently supported for publishing` });
         return;
       }
 
-      const publisher = new ReviewPublisher(registry);
+      const publisher = new ReviewPublisher(gitProvider);
       const result = await publisher.publish(ref, issues, { 
         dryRun: false,
         approveIfClean: true

@@ -64,22 +64,34 @@ function buildEnvOverrides(config: any, language: string) {
   if (config.AI_REVIEW_LLM_BASE_URL) envOverrides.AI_REVIEW_LLM_BASE_URL = config.AI_REVIEW_LLM_BASE_URL;
 
   if (config.AI_PROVIDERS && config.AI_PROVIDERS.length > 0) {
-    envOverrides.AI_PROVIDERS_JSON = JSON.stringify(config.AI_PROVIDERS);
+    const enabledProviders = config.AI_PROVIDERS.filter((p: any) => p.enabled !== false);
+    envOverrides.AI_PROVIDERS_JSON = JSON.stringify(enabledProviders);
     
     // Find the currently active provider if AI_REVIEW_LLM_PROVIDER matches an ID or provider name
     const active = config.AI_PROVIDERS.find(
       (p: any) => p.id === config.AI_REVIEW_LLM_PROVIDER || p.provider === config.AI_REVIEW_LLM_PROVIDER
     );
-    if (active) {
+    if (active && active.enabled !== false) {
       envOverrides.AI_REVIEW_LLM_PROVIDER = active.provider;
       if (active.apiKey) envOverrides.AI_REVIEW_LLM_API_KEY = active.apiKey;
       if (active.model) envOverrides.AI_REVIEW_LLM_MODEL = active.model;
       if (active.baseUrl) envOverrides.AI_REVIEW_LLM_BASE_URL = active.baseUrl;
       if (active.inputCostPer1M !== undefined) envOverrides.AI_REVIEW_INPUT_COST_PER_1M = String(active.inputCostPer1M);
       if (active.outputCostPer1M !== undefined) envOverrides.AI_REVIEW_OUTPUT_COST_PER_1M = String(active.outputCostPer1M);
+    } else if (active && active.enabled === false) {
+      // If active is disabled, fallback to the first enabled one
+      const fallback = enabledProviders[0];
+      if (fallback) {
+        envOverrides.AI_REVIEW_LLM_PROVIDER = fallback.provider;
+        if (fallback.apiKey) envOverrides.AI_REVIEW_LLM_API_KEY = fallback.apiKey;
+        if (fallback.model) envOverrides.AI_REVIEW_LLM_MODEL = fallback.model;
+        if (fallback.baseUrl) envOverrides.AI_REVIEW_LLM_BASE_URL = fallback.baseUrl;
+        if (fallback.inputCostPer1M !== undefined) envOverrides.AI_REVIEW_INPUT_COST_PER_1M = String(fallback.inputCostPer1M);
+        if (fallback.outputCostPer1M !== undefined) envOverrides.AI_REVIEW_OUTPUT_COST_PER_1M = String(fallback.outputCostPer1M);
+      }
     }
 
-    for (const p of config.AI_PROVIDERS) {
+    for (const p of enabledProviders) {
       const prefix = p.provider.toUpperCase();
       if (p.apiKey) envOverrides[`AI_REVIEW_${prefix}_API_KEY`] = p.apiKey;
       if (p.model) envOverrides[`AI_REVIEW_${prefix}_MODEL`] = p.model;

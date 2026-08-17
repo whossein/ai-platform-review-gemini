@@ -1,25 +1,40 @@
-# AI Code Reviewer 🚀
+# 🤖 AI Code Review Platform
 
-> **Multi-Agent AI Code Review Platform** with deterministic rule scanning, specialist AI reviewers, cost/tier orchestration, and a unified full-stack web & desktop interface.
+**[English & Persian Documentation]**
 
----
+The **AI Code Review Platform** is an agentic, scalable, and multi-provider code review application designed to automatically detect security vulnerabilities, performance regressions, logical bugs, architectural antipatterns, and style violations across Git diffs and codebases.
 
-## 📖 Overview
-
-**AI Code Reviewer** (`ai-review-platform`) is a modular, event-driven, provider-agnostic code review suite designed to deliver automated, high-precision code reviews. By combining **fast deterministic static analysis** with **specialized multi-agent LLM reasoning**, the platform pinpoints security vulnerabilities, performance regressions, logical bugs, architectural antipatterns, and style violations across Git diffs and codebases.
+**🔗 [View Official Landing Page](https://your-username.github.io/ai-review-platform/) (Update URL when deploying to GitHub Pages)**
 
 ---
 
-## ✨ Key Features
+## 🌍 About the Project (English)
 
+The **AI Code Review Platform** is a powerful, multi-agent automated code review system. It acts as an intelligent pair programmer, seamlessly integrating with your git workflow (GitLab, local diffs, etc.) to analyze code changes, detect bugs, and suggest improvements.
+
+### ✨ Key Features
 - 🤖 **13 Specialized Review Personas**: Focused agents tailored for React, TypeScript, Next.js, Angular, Vue, .NET/C#, Python, Android (Kotlin/Java), iOS (Swift), React Native, Security, Performance, and General Code Quality.
 - ⚡ **Pre-LLM Deterministic Rule Engine**: Zero-cost regex and pattern analysis to immediately detect hardcoded secrets, SQL injection, eval usage, wildcard CORS, console logs, and anti-patterns with 100% confidence.
 - 🎯 **Smart Routing & Planner**: Evaluates diffs and changed file extensions to invoke only relevant specialists, minimizing latency and LLM token usage.
-- ⚖️ **Critic & Corroboration Stage**: Merges multi-agent findings, deduplicates overlapping issues by file and line, and boosts confidence scores when multiple reviewers concur.
-- 🌐 **Multi-Language Output Support**: Generates review comments and recommendations in English, Persian (Farsi), Spanish, French, German, Japanese, Chinese, and more.
-- 💰 **Provider-Agnostic LLM Engine**: Native support for Google Gemini, OpenAI, Anthropic, OpenRouter, DeepSeek, Ollama, Azure OpenAI, and custom OpenAI-compatible proxies with client-side response caching.
-- 🦊 **GitLab Merge Request Integration**: Fetches MR diffs and publishes inline discussions and review summaries directly via GitLab REST API v4.
+- 🔌 **Provider-Agnostic LLM Engine**: Native support for **Google Gemini, OpenAI, Anthropic, OpenRouter, Avalai, DeepSeek, Ollama (Local AI), Azure**, and custom OpenAI-compatible proxies. 
+- 🎛️ **Provider Management**: Toggle providers on/off, set active defaults, fetch models lists, and control API usage budgets.
+- 🦊 **GitLab Integration**: Fetches MR diffs and publishes inline discussions and review summaries directly via GitLab REST API v4.
 - 🖥️ **Interactive Web & Desktop UI**: Real-time review execution with Server-Sent Events (SSE), interactive diff visualizer, historical review archive, and Electron desktop packaging.
+
+---
+
+## 🇮🇷 درباره پروژه (فارسی)
+
+**پلتفرم بررسی هوشمند کد (AI Code Review)** یک سیستم خودکار و چندعامله (Multi-Agent) است که مانند یک برنامه‌نویس ارشد در کنار شما قرار می‌گیرد. این پلتفرم با تحلیل کدهای جدید (از طریق GitLab یا فایل‌های Local)، باگ‌ها را شناسایی کرده و راهکارهای بهینه‌سازی پیشنهاد می‌دهد.
+
+### ✨ ویژگی‌های کلیدی
+- 🤖 **۱۳ ارزیاب متخصص**: شامل ایجنت‌های تخصصی برای React، TypeScript، Python، Android، امنیت (Security)، پرفورمنس و ...
+- ⚡ **موتور بررسی قطعی (بدون هزینه)**: شناسایی فوری مشکلاتی مثل کلیدهای لو رفته، SQL Injection، و کدهای خطرناک بدون نیاز به مصرف توکن‌های هوش مصنوعی.
+- 🎯 **مسیریابی هوشمند**: بررسی نوع فایل‌های تغییر یافته و ارجاع آن‌ها فقط به متخصص مربوطه برای کاهش هزینه و افزایش سرعت.
+- 🔌 **پشتیبانی از انواع هوش مصنوعی**: پشتیبانی کامل از **Gemini، OpenAI، Anthropic، OpenRouter، سیستم ایرانی Avalai، DeepSeek، و Ollama (برای پردازش آفلاین/رایگان)**.
+- 🎛️ **مدیریت پیشرفته سرویس‌دهنده‌ها**: قابلیت روشن/خاموش کردن، تعیین هوش مصنوعی پیش‌فرض، دریافت مستقیم لیست مدل‌ها و کنترل سقف بودجه (Budget Limit).
+- 🦊 **یکپارچگی با گیت‌لب (GitLab)**: امکان دریافت مستقیم Merge Request ها و ثبت خودکار کامنت روی کدهای تغییر یافته در GitLab.
+- 🖥️ **رابط کاربری تعاملی (وب و دسکتاپ)**: مشاهده زنده فرآیند بررسی، تاریخچه کد رویوها و پشتیبانی از نسخه دسکتاپ (Electron).
 
 ---
 
@@ -54,50 +69,14 @@
 
 ---
 
-## 🔍 Review Pipeline Flow
-
-```mermaid
-flowchart TD
-    A[Git Diff / Code Input / GitLab MR] --> B[Unified Diff Parser & File Resolver]
-    B --> C[Deterministic Rule Engine]
-    C --> D[Planner & Extension Router]
-    D --> E[Cost & Token Estimator]
-    E --> F[Parallel Specialist Agents]
-    subgraph Specialists [Specialist LLM Agents]
-        F1[Security Specialist]
-        F2[Performance Specialist]
-        F3[Framework Specialist e.g., React, .NET]
-        F4[General Code Specialist]
-    end
-    F --> Specialists
-    Specialists --> G[Critic & Corroboration Engine]
-    G --> H[Issue Deduplication & Scoring]
-    H --> I[Output & Delivery]
-    I --> I1[Interactive Web UI / SSE]
-    I --> I2[Markdown / JSON Report]
-    I --> I3[GitLab Inline Discussion Comments]
-```
-
-1. **Diff Ingestion**: Input patch or Git repository diff is parsed into structured files and hunks.
-2. **Deterministic Scan**: Static rules inspect changed lines for zero-cost immediate findings (e.g., secrets, SQL injection, eval).
-3. **Planning & Routing**: The planner selects matching specialist reviewers based on file types (`.tsx`, `.cs`, `.py`, etc.).
-4. **Agent Execution**: Selected specialists execute in parallel using tailored domain prompts and target language preferences.
-5. **Critique & Deduplication**: Overlapping findings are merged, severity is adjusted, and confidence is reinforced.
-6. **Delivery**: Findings stream to the web UI, write inline annotations, or export as Markdown/JSON.
-
----
-
 ## 🚀 Getting Started
 
 ### Prerequisites
-
 - **Node.js**: `v18.0.0` or higher
 - **npm** (v10+) or **bun**
 
 ### 1. Installation
-
 Clone the repository and install dependencies:
-
 ```bash
 git clone <repository-url>
 cd ai-review-platform
@@ -105,37 +84,16 @@ npm install
 ```
 
 ### 2. Environment Configuration
-
-Copy `.env.example` to `.env` and set your API keys:
-
+Copy `.env.example` to `.env` and set your API keys (can also be done directly in the UI Settings):
 ```bash
 cp .env.example .env
 ```
 
-Example `.env` configurations:
-
-```env
-# Google Gemini (Default)
-GEMINI_API_KEY="your-gemini-api-key"
-
-# OpenAI / Compatible Providers (Optional)
-AI_REVIEW_LLM_PROVIDER="openai" # Options: gemini | openai | anthropic | openrouter | deepseek | ollama | azure | custom
-AI_REVIEW_LLM_API_KEY="sk-..."
-AI_REVIEW_LLM_MODEL="gpt-4o"
-AI_REVIEW_LLM_BASE_URL="https://api.openai.com/v1"
-
-# GitLab Integration (Optional)
-GITLAB_TOKEN="glpat-..."
-```
-
 ### 3. Running Development Server
-
 Start the full-stack server (Express API + Vite React Frontend on port `3000`):
-
 ```bash
 npm run dev
 ```
-
 Visit [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
@@ -153,35 +111,5 @@ Visit [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 🔌 API Endpoints
-
-The full-stack server (`server.ts`) exposes the following endpoints:
-
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/health` | Service health status check |
-| `POST` | `/api/estimate` | Computes diff size, deterministic issues, and estimated tokens/cost |
-| `POST` | `/api/review` | Executes a complete review and returns structured JSON results |
-| `POST` | `/api/stream-review` | Server-Sent Events (SSE) stream providing real-time progress and findings |
-| `POST` | `/api/fetch-mr` | Fetches diff and metadata from a GitLab Merge Request URL |
-| `POST` | `/api/publish-mr` | Posts review findings as discussions on GitLab Merge Requests |
-| `POST` | `/api/apply-local` | Writes review findings as inline `// TODO` comments in local source files |
-
----
-
-## 🛡️ Deterministic Rules (Zero-Cost)
-
-The built-in rule engine detects the following patterns before calling any LLM:
-
-- 🔑 **Hardcoded Secrets**: API keys, private tokens, bearer tokens, AWS credentials.
-- 💉 **SQL Injection**: Unsanitized raw SQL concatenation and template literals.
-- ⚠️ **Dangerous Execution**: `eval()`, `Function()` constructor execution.
-- 🌐 **CORS Wildcard**: Unrestricted `Access-Control-Allow-Origin: *`.
-- ⚛️ **React Anti-Patterns**: Unkeyed array `.map()` iterations.
-- 🧹 **Code Hygiene**: Lingering `console.log`, `TODO`/`FIXME` markers, `any` type usage, and un-awaited async calls.
-
----
-
 ## 📄 License
-
-Private repository maintained for automated AI code review workflows.
+Private repository maintained for automated AI code review workflows. Version **0.1.0**.

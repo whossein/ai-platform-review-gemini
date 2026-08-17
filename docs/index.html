@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Code Review Platform | بررسی هوشمند کد</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        .rtl { direction: rtl; font-family: 'Vazirmatn', sans-serif; }
+        .ltr { direction: ltr; font-family: system-ui, -apple-system, sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <!-- Header -->
+    <header class="bg-indigo-600 text-white py-12 shadow-md">
+        <div class="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between">
+            <div>
+                <h1 class="text-4xl font-bold mb-4">AI Code Review Platform</h1>
+                <h2 class="text-2xl rtl font-semibold opacity-90">پلتفرم هوشمند بررسی و ارزیابی کد</h2>
+            </div>
+            <div class="mt-8 md:mt-0 opacity-80">
+                <svg class="w-32 h-32" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+                </svg>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-6xl mx-auto px-6 py-12 grid grid-cols-1 md:grid-cols-2 gap-12">
+        
+        <!-- English Section -->
+        <section class="ltr space-y-6">
+            <div class="flex items-center space-x-3 mb-6">
+                <span class="text-3xl">🇬🇧</span>
+                <h2 class="text-3xl font-bold text-slate-900">About the Project</h2>
+            </div>
+            <p class="text-lg leading-relaxed text-slate-600">
+                The <strong>AI Code Review Platform</strong> is a powerful, multi-agent automated code review system. It acts as an intelligent pair programmer, seamlessly integrating with your git workflow (GitLab, local diffs, etc.) to analyze code changes, detect bugs, and suggest improvements.
+            </p>
+            <h3 class="text-xl font-semibold text-slate-800 mt-6 mb-3">Key Features:</h3>
+            <ul class="list-disc pl-6 space-y-2 text-slate-600">
+                <li><strong>Multi-Provider Support:</strong> Works with OpenAI, Anthropic, Gemini, OpenRouter, Avalai, and Ollama (Local AI).</li>
+                <li><strong>Agentic Workflow:</strong> Employs multiple specialized AI agents (Security, Performance, Best Practices) to provide a comprehensive review.</li>
+                <li><strong>Auto-Publishing:</strong> Automatically posts review comments directly to your GitLab Merge Requests.</li>
+                <li><strong>Budget Control:</strong> Set hard limits on API usage costs to prevent unexpected bills.</li>
+                <li><strong>Provider Toggling:</strong> Easily enable, disable, or switch default AI providers with fallback mechanisms.</li>
+            </ul>
+        </section>
+
+        <!-- Persian Section -->
+        <section class="rtl space-y-6">
+            <div class="flex items-center space-x-3 mb-6">
+                <span class="text-3xl">🇮🇷</span>
+                <h2 class="text-3xl font-bold text-slate-900">درباره پروژه</h2>
+            </div>
+            <p class="text-lg leading-relaxed text-slate-600">
+                <strong>پلتفرم بررسی هوشمند کد (AI Code Review)</strong> یک سیستم خودکار و چندعامله (Multi-Agent) است که مانند یک برنامه‌نویس ارشد در کنار شما قرار می‌گیرد. این پلتفرم با تحلیل کدهای جدید (از طریق GitLab یا فایل‌های Local)، باگ‌ها را شناسایی کرده و راهکارهای بهینه‌سازی پیشنهاد می‌دهد.
+            </p>
+            <h3 class="text-xl font-semibold text-slate-800 mt-6 mb-3">ویژگی‌های کلیدی:</h3>
+            <ul class="list-disc pr-6 space-y-2 text-slate-600 marker:text-indigo-500">
+                <li><strong>پشتیبانی از هوش مصنوعی‌های متنوع:</strong> اتصال به OpenAI، Anthropic، Gemini، OpenRouter، سیستم ایرانی Avalai و حتی Ollama برای پردازش آفلاین.</li>
+                <li><strong>ارزیابی چندجانبه:</strong> استفاده از چندین نماینده هوش مصنوعی برای بررسی همزمان امنیت، پرفورمنس و معماری تمیزِ کد.</li>
+                <li><strong>ثبت خودکار نظرات:</strong> توانایی ارسال مستقیم کامنت‌های اصلاحی بر روی Merge Request های گیت‌لب.</li>
+                <li><strong>مدیریت هزینه‌ها:</strong> امکان تعیین سقف بودجه برای مصرف API تا از هزینه‌های ناخواسته جلوگیری شود.</li>
+                <li><strong>مدیریت منعطف سرویس‌دهنده‌ها:</strong> خاموش و روشن کردن سریع هوش‌مصنوعی‌های مختلف و سوییچ خودکار در صورت قطعی هر کدام.</li>
+            </ul>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 py-8 text-center mt-12">
+        <p class="mb-2">Powered by AI Studio | Automated Code Review Agent</p>
+        <p class="text-sm">Version <span id="app-version">0.1.0</span></p>
+    </footer>
+
+</body>
+</html>

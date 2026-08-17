@@ -19,7 +19,8 @@ import {
   Cpu, 
   ShieldCheck,
   DollarSign,
-  X
+  X,
+  Power
 } from 'lucide-react';
 import { useAppConfig } from './Settings.js';
 import type { AIProviderConfig, AppConfig } from './Settings.js';
@@ -272,6 +273,19 @@ export function SettingsView() {
 
   const handleSetDefaultProvider = (providerId: string) => {
     setLocal({ ...local, AI_REVIEW_LLM_PROVIDER: providerId });
+  };
+
+  const handleToggleEnableProvider = (id: string) => {
+    const providers = (local.AI_PROVIDERS || []).map(p => {
+      if (p.id === id) {
+        return { ...p, enabled: p.enabled === false ? true : false };
+      }
+      return p;
+    });
+    setLocal({
+      ...local,
+      AI_PROVIDERS: providers,
+    });
   };
 
   const handleExportConfig = () => {
@@ -671,6 +685,7 @@ export function SettingsView() {
               );
             }
 
+            const isDisabled = p.enabled === false;
             return (
               <div 
                 key={p.id} 
@@ -683,6 +698,9 @@ export function SettingsView() {
                   flexDirection: 'column',
                   gap: '0.6rem',
                   boxShadow: isDefault ? '0 0 0 1px var(--accent)' : 'none',
+                  opacity: isDisabled ? 0.6 : 1,
+                  filter: isDisabled ? 'grayscale(0.5)' : 'none',
+                  transition: 'opacity 0.2s, filter 0.2s',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -700,10 +718,22 @@ export function SettingsView() {
                         Active Default
                       </span>
                     )}
+                    {isDisabled && (
+                      <span style={{ fontSize: '0.75rem', background: 'var(--border)', color: 'var(--muted)', padding: '0.15rem 0.5rem', borderRadius: '4px', fontWeight: 500 }}>
+                        Disabled
+                      </span>
+                    )}
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                    {!isDefault && (
+                    <button 
+                      onClick={() => handleToggleEnableProvider(p.id)}
+                      title={isDisabled ? "Enable Provider" : "Disable Provider"}
+                      style={{ padding: '0.4rem', background: 'transparent', border: 'none', color: isDisabled ? 'var(--muted)' : 'var(--text)', cursor: 'pointer' }}
+                    >
+                      <Power size={17} />
+                    </button>
+                    {!isDefault && !isDisabled && (
                       <button 
                         onClick={() => handleSetDefaultProvider(p.id)}
                         title="Set as Active Default Provider"

@@ -9,6 +9,7 @@ export interface AIProviderConfig {
   tier?: 'cheap' | 'mid' | 'premium' | 'local' | string | undefined;
   inputCostPer1M?: number | undefined;
   outputCostPer1M?: number | undefined;
+  enabled?: boolean;
 }
 
 export interface AppConfig {
