@@ -1,17 +1,19 @@
 import { useState } from 'react';
-import { Code, Settings, History, Wrench, Menu, X } from 'lucide-react';
+import { Code, Settings, History, Wrench, Menu, X, Activity } from 'lucide-react';
 import { ReviewView } from './ReviewView.js';
 import { SettingsView } from './SettingsView.js';
 import { SkillsView } from './SkillsView.js';
 import { HistoryView } from './HistoryView.js';
+import { HowItWorksView } from './HowItWorksView.js';
 import { useAppConfig } from './Settings.js';
 
 export function App(): JSX.Element {
-  const [activeTab, setActiveTab] = useState('review');
+  const [activeTab, setActiveTab] = useState('howitworks');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [config] = useAppConfig();
 
   const tabs = [
+    { id: 'howitworks', label: 'How It Works', icon: Activity },
     { id: 'review', label: 'Code Review', icon: Code },
     { id: 'skills', label: 'Skills & Rules', icon: Wrench },
     { id: 'history', label: 'History', icon: History },
@@ -66,6 +68,7 @@ export function App(): JSX.Element {
 
       {/* Main Content Area */}
       <main className="main-content">
+        {activeTab === 'howitworks' && <HowItWorksView />}
         {activeTab === 'review' && <ReviewView />}
         {activeTab === 'skills' && <SkillsView />}
         {activeTab === 'history' && <HistoryView />}

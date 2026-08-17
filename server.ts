@@ -417,7 +417,7 @@ function parseDiffToFiles(diffText: string): { path: string, text: string }[] {
       
       if (ref.provider === 'gitlab') {
         const baseUrl = mergedEnv.GITLAB_BASE_URL || baseUrlFromChangeRequestUrl(diff) || 'https://gitlab.com';
-        registry.register(new GitLabProvider({ baseUrl, token }, http));
+        registry.register(new GitLabProvider(http, { baseUrl, token }));
       } else {
         res.status(400).json({ error: `Provider ${ref.provider} is not currently supported for publishing` });
         return;
