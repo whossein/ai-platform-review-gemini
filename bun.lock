@@ -6,8 +6,10 @@
       "name": "react-example",
       "dependencies": {
         "@ai-review/config": "*",
+        "@ai-review/git": "*",
         "@ai-review/orchestrator": "*",
         "@ai-review/shared": "*",
+        "@ai-review/workflow-engine": "*",
         "express": "^4.21.2",
         "lucide-react": "^1.31.0",
         "turbo": "^2.1.0",
@@ -30,6 +32,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@ai-review/core": "*",
+        "@ai-review/llm": "*",
         "@ai-review/orchestrator": "*",
         "@ai-review/shared": "*",
       },
@@ -150,6 +153,7 @@
         "@ai-review/memory": "*",
         "@ai-review/reporting": "*",
         "@ai-review/shared": "*",
+        "@ai-review/workflow-engine": "*",
       },
       "devDependencies": {
         "typescript": "^5.5.0",

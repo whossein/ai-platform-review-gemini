@@ -147,7 +147,6 @@ export class OpenAICompatibleProvider implements LLMProvider {
     if (rawKey) {
       // Standard RFC-6750 Authorization Bearer header
       requestHeaders['Authorization'] = `Bearer ${rawKey}`;
-      requestHeaders['authorization'] = `Bearer ${rawKey}`;
 
       // Additional provider-specific header compatibility
       requestHeaders['x-api-key'] = rawKey;
