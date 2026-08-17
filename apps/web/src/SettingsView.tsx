@@ -117,7 +117,28 @@ export function SettingsView() {
   const [editForm, setEditForm] = useState<AIProviderConfig | null>(null);
 
   const [testStates, setTestStates] = useState<Record<string, TestState>>({});
+  const [modelLists, setModelLists] = useState<Record<string, { loading: boolean, models: string[], error?: string }>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleFetchModels = async (key: string, pConfig: { provider: string; apiKey?: string; baseUrl?: string }) => {
+    setModelLists(prev => ({ ...prev, [key]: { loading: true, models: [] } }));
+    try {
+      const res = await fetch('/api/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: pConfig.provider,
+          apiKey: pConfig.apiKey,
+          baseUrl: pConfig.baseUrl,
+        })
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'Failed to fetch models');
+      setModelLists(prev => ({ ...prev, [key]: { loading: false, models: data.models } }));
+    } catch (err: any) {
+      setModelLists(prev => ({ ...prev, [key]: { loading: false, models: [], error: err.message } }));
+    }
+  };
 
   const [newProvider, setNewProvider] = useState<AIProviderConfig>({
     id: '',
@@ -286,7 +307,7 @@ export function SettingsView() {
   };
 
   return (
-    <div className="settings-view" style={{ maxWidth: '680px', margin: '0 auto' }}>
+    <div className="settings-view" style={{ maxWidth: '1100px', margin: '0 auto' }}>
       <header className="view-header" style={{ marginBottom: '1.5rem' }}>
         <h1 style={{ margin: 0, fontSize: '1.5rem', color: 'var(--text)' }}>Configuration & AI Providers</h1>
         <p style={{ color: 'var(--muted)', marginTop: '0.5rem', fontSize: '0.9rem' }}>
@@ -508,13 +529,27 @@ export function SettingsView() {
 
                   <div style={{ display: 'flex', gap: '1rem', marginTop: '0.75rem' }}>
                     <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-                      <label>Model Name</label>
+                      <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>Model Name</span>
+                        <button 
+                          type="button" 
+                          onClick={() => handleFetchModels('edit', editForm)}
+                          style={{ background: 'transparent', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '0.8rem', padding: 0 }}
+                        >
+                          {modelLists['edit']?.loading ? 'Loading...' : 'Fetch List'}
+                        </button>
+                      </label>
                       <input
                         type="text"
                         value={editForm.model}
                         onChange={(e) => setEditForm({ ...editForm, model: e.target.value })}
                         placeholder={`Default: ${editPreset.defaultModel}`}
+                        list="edit-models-list"
                       />
+                      {modelLists['edit']?.error && <div style={{ color: 'var(--error)', fontSize: '0.8rem', marginTop: '0.25rem' }}>{modelLists['edit'].error}</div>}
+                      <datalist id="edit-models-list">
+                        {modelLists['edit']?.models?.map(m => <option key={m} value={m} />)}
+                      </datalist>
                     </div>
                     <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
                       <label>Tier / Speed</label>
@@ -582,14 +617,18 @@ export function SettingsView() {
                         borderRadius: '6px', 
                         fontSize: '0.85rem',
                         display: 'flex',
-                        alignItems: 'center',
+                        alignItems: 'flex-start',
                         gap: '0.5rem',
                         background: editTestState.result.ok ? 'rgba(46, 213, 115, 0.1)' : 'rgba(255, 71, 87, 0.1)',
                         color: editTestState.result.ok ? 'var(--low)' : 'var(--critical)',
-                        border: `1px solid ${editTestState.result.ok ? 'rgba(46, 213, 115, 0.3)' : 'rgba(255, 71, 87, 0.3)'}`
+                        border: `1px solid ${editTestState.result.ok ? 'rgba(46, 213, 115, 0.3)' : 'rgba(255, 71, 87, 0.3)'}`,
+                        wordBreak: 'break-word',
+                        whiteSpace: 'pre-wrap'
                       }}
                     >
-                      {editTestState.result.ok ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                      <div style={{ flexShrink: 0, marginTop: '2px' }}>
+                        {editTestState.result.ok ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                      </div>
                       <span>
                         {editTestState.result.ok 
                           ? `✓ Connected (${editTestState.result.latencyMs}ms) — Model: ${editTestState.result.model}`
@@ -734,14 +773,18 @@ export function SettingsView() {
                       borderRadius: '6px', 
                       fontSize: '0.8rem',
                       display: 'flex',
-                      alignItems: 'center',
+                      alignItems: 'flex-start',
                       gap: '0.5rem',
                       background: testState.result.ok ? 'rgba(46, 213, 115, 0.1)' : 'rgba(255, 71, 87, 0.1)',
                       color: testState.result.ok ? 'var(--low)' : 'var(--critical)',
-                      border: `1px solid ${testState.result.ok ? 'rgba(46, 213, 115, 0.3)' : 'rgba(255, 71, 87, 0.3)'}`
+                      border: `1px solid ${testState.result.ok ? 'rgba(46, 213, 115, 0.3)' : 'rgba(255, 71, 87, 0.3)'}`,
+                      wordBreak: 'break-word',
+                      whiteSpace: 'pre-wrap'
                     }}
                   >
-                    {testState.result.ok ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
+                    <div style={{ flexShrink: 0, marginTop: '2px' }}>
+                      {testState.result.ok ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
+                    </div>
                     <span>
                       {testState.result.ok 
                         ? `✓ Connected (${testState.result.latencyMs}ms) — Model: ${testState.result.model}`
@@ -846,13 +889,27 @@ export function SettingsView() {
 
           <div style={{ display: 'flex', gap: '1rem', marginTop: '0.75rem' }}>
             <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
-              <label>Model Name (Optional)</label>
+              <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Model Name (Optional)</span>
+                <button 
+                  type="button" 
+                  onClick={() => handleFetchModels('new', newProvider)}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '0.8rem', padding: 0 }}
+                >
+                  {modelLists['new']?.loading ? 'Loading...' : 'Fetch List'}
+                </button>
+              </label>
               <input
                 type="text"
                 value={newProvider.model}
                 onChange={(e) => setNewProvider({ ...newProvider, model: e.target.value })}
                 placeholder={`Default: ${PRESET_DEFAULTS[newProvider.provider]?.defaultModel || 'gpt-4o-mini'}`}
+                list="new-models-list"
               />
+              {modelLists['new']?.error && <div style={{ color: 'var(--error)', fontSize: '0.8rem', marginTop: '0.25rem' }}>{modelLists['new'].error}</div>}
+              <datalist id="new-models-list">
+                {modelLists['new']?.models?.map(m => <option key={m} value={m} />)}
+              </datalist>
             </div>
             <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
               <label>Tier / Speed</label>
@@ -920,14 +977,18 @@ export function SettingsView() {
                 borderRadius: '6px', 
                 fontSize: '0.85rem',
                 display: 'flex',
-                alignItems: 'center',
+                alignItems: 'flex-start',
                 gap: '0.5rem',
                 background: testStates['new-provider'].result.ok ? 'rgba(46, 213, 115, 0.1)' : 'rgba(255, 71, 87, 0.1)',
                 color: testStates['new-provider'].result.ok ? 'var(--low)' : 'var(--critical)',
-                border: `1px solid ${testStates['new-provider'].result.ok ? 'rgba(46, 213, 115, 0.3)' : 'rgba(255, 71, 87, 0.3)'}`
+                border: `1px solid ${testStates['new-provider'].result.ok ? 'rgba(46, 213, 115, 0.3)' : 'rgba(255, 71, 87, 0.3)'}`,
+                wordBreak: 'break-word',
+                whiteSpace: 'pre-wrap'
               }}
             >
-              {testStates['new-provider'].result.ok ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+              <div style={{ flexShrink: 0, marginTop: '2px' }}>
+                {testStates['new-provider'].result.ok ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+              </div>
               <span>
                 {testStates['new-provider'].result.ok 
                   ? `✓ Connected (${testStates['new-provider'].result.latencyMs}ms) — Model: ${testStates['new-provider'].result.model}`

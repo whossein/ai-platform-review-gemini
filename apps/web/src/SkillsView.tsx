@@ -293,7 +293,7 @@ export function SkillsView() {
   };
 
   return (
-    <div className="skills-view" style={{ maxWidth: '1000px' }}>
+    <div className="skills-view" style={{ maxWidth: '1100px', margin: '0 auto' }}>
       <header className="view-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.5rem' }}>AI Agent Skills</h1>

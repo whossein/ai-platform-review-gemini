@@ -158,7 +158,7 @@ export function HistoryView() {
   }, 0);
 
   return (
-    <div className="view-container">
+    <div className="view-container" style={{ maxWidth: '1100px', margin: '0 auto' }}>
       <header className="view-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h2>Review History</h2>

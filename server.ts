@@ -343,6 +343,50 @@ function parseDiffToFiles(diffText: string): { path: string, text: string }[] {
     }
   });
 
+  app.post("/api/models", async (req, res) => {
+    try {
+      const { provider, apiKey, baseUrl } = req.body || {};
+      if (!provider) {
+        res.status(400).json({ ok: false, error: 'Provider name is required' });
+        return;
+      }
+
+      const { resolveProviderPreset, resolveApiKey } = await import('@ai-review/llm');
+      const preset = resolveProviderPreset(provider) ?? resolveProviderPreset('openai')!;
+      
+      const effectiveBaseUrl = baseUrl || preset.defaultBaseUrl;
+      const effectiveApiKey = resolveApiKey(provider, preset.envPrefix, apiKey, process.env);
+
+      if (!effectiveBaseUrl) {
+        res.status(400).json({ ok: false, error: 'Base URL missing' });
+        return;
+      }
+
+      // Fetch from /v1/models endpoint typical for OpenAI compatible services
+      const modelsUrl = effectiveBaseUrl.endsWith('/') ? `${effectiveBaseUrl}models` : `${effectiveBaseUrl}/models`;
+      const headers: Record<string, string> = {
+        'Accept': 'application/json'
+      };
+      
+      if (effectiveApiKey) {
+        headers['Authorization'] = `Bearer ${effectiveApiKey}`;
+      }
+
+      const response = await fetch(modelsUrl, { headers });
+      if (!response.ok) {
+        throw new Error(`Status ${response.status}: ${await response.text()}`);
+      }
+
+      const data = await response.json();
+      const models = data.data?.map((m: any) => m.id) || [];
+
+      res.status(200).json({ ok: true, models });
+    } catch (err: any) {
+      console.error("Fetch models error:", err);
+      res.status(500).json({ ok: false, error: err.message || 'Failed to fetch models' });
+    }
+  });
+
   app.post("/api/review", async (req, res) => {
     // Prevent request timeout on long-running multi-agent reviews
     req.setTimeout(600_000);

@@ -368,7 +368,7 @@ export function ReviewView(): JSX.Element {
   }
 
   return (
-    <div className="review-view" style={{ maxWidth: '900px' }}>
+    <div className="review-view" style={{ maxWidth: '1100px', margin: '0 auto' }}>
       <header className="view-header" style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <h1 style={{ margin: 0, fontSize: '1.5rem' }}>Code Review</h1>

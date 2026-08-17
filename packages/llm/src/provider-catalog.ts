@@ -29,7 +29,7 @@ import type { ModelTier } from '@ai-review/core';
 
 /** Canonical keys accepted by `AI_REVIEW_LLM_PROVIDER`. */
 export type ProviderKey =
-  'openai' | 'anthropic' | 'gemini' | 'openrouter' | 'ollama' | 'azure' | 'deepseek' | 'custom';
+  'openai' | 'anthropic' | 'gemini' | 'openrouter' | 'ollama' | 'azure' | 'deepseek' | 'avalai' | 'custom';
 
 export interface ProviderPreset {
   /** Canonical selector key (matches `AI_REVIEW_LLM_PROVIDER`). */
@@ -113,11 +113,11 @@ export const PROVIDER_CATALOG: readonly ProviderPreset[] = [
     label: 'OpenRouter',
     envPrefix: 'OPENROUTER',
     defaultBaseUrl: 'https://openrouter.ai/api/v1',
-    defaultModel: 'anthropic/claude-3.5-sonnet',
+    defaultModel: 'openai/gpt-4o-mini',
     requiresApiKey: true,
     defaultTier: 'mid',
-    defaultInputCostPer1M: 3.00,
-    defaultOutputCostPer1M: 15.00,
+    defaultInputCostPer1M: 0.15,
+    defaultOutputCostPer1M: 0.60,
   },
   {
     key: 'ollama',
@@ -157,6 +157,18 @@ export const PROVIDER_CATALOG: readonly ProviderPreset[] = [
     defaultTier: 'cheap',
     defaultInputCostPer1M: 0.14,
     defaultOutputCostPer1M: 0.28,
+  },
+  {
+    key: 'avalai',
+    providerId: 'provider.avalai',
+    label: 'Avalai (Iranian Gateway)',
+    envPrefix: 'AVALAI',
+    defaultBaseUrl: 'https://api.avalai.ir/v1',
+    defaultModel: 'gpt-4o-mini',
+    requiresApiKey: true,
+    defaultTier: 'cheap',
+    defaultInputCostPer1M: 0.15,
+    defaultOutputCostPer1M: 0.60,
   },
   {
     key: 'custom',
