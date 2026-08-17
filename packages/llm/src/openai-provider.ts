@@ -192,7 +192,46 @@ export class OpenAICompatibleProvider implements LLMProvider {
       };
     }
 
-    const text = await res.text();
+    let text = await res.text();
+
+    // Auto-retry if the model rejected `temperature` (e.g., o1/o3 reasoning models or custom provider restrictions)
+    if (!res.ok && res.status === 400 && body.temperature !== undefined && text.toLowerCase().includes('temperature')) {
+      delete body.temperature;
+      try {
+        const retryRes = await this.fetchImpl(targetEndpoint, {
+          method: 'POST',
+          headers: requestHeaders,
+          body: JSON.stringify(body),
+          ...(signal ? { signal } : {}),
+        });
+        if (retryRes.ok) {
+          res = retryRes;
+          text = await retryRes.text();
+        }
+      } catch {
+        // keep original response
+      }
+    }
+
+    // Auto-retry if the model rejected `response_format` (json_object)
+    if (!res.ok && res.status === 400 && body.response_format && text.toLowerCase().includes('response_format')) {
+      delete body.response_format;
+      try {
+        const retryRes = await this.fetchImpl(targetEndpoint, {
+          method: 'POST',
+          headers: requestHeaders,
+          body: JSON.stringify(body),
+          ...(signal ? { signal } : {}),
+        });
+        if (retryRes.ok) {
+          res = retryRes;
+          text = await retryRes.text();
+        }
+      } catch {
+        // keep original response
+      }
+    }
+
     if (!res.ok) {
       const isUnauthorized = res.status === 401 || res.status === 403;
       const authHint = isUnauthorized 

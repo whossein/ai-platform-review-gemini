@@ -312,7 +312,6 @@ function parseDiffToFiles(diffText: string): { path: string, text: string }[] {
           { role: 'user', content: 'Respond with the single word "OK".' },
         ],
         maxTokens: 10,
-        temperature: 0,
       });
 
       const latencyMs = Date.now() - startTime;
